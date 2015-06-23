@@ -439,6 +439,12 @@ config EDAC_ALTERA_SDMMC
 	  Support for error detection and correction on the
 	  Altera SDMMC FIFO Memory for Altera SoCs.
 
+config EDAC_CADENCE_MC
+	tristate "Cadence Memory Controller"
+	help
+	  Support for error detection and correction on the
+	  Cadence DDR memory controller.
+
 config EDAC_SYNOPSYS
 	tristate "Synopsys DDR Memory Controller"
 	depends on ARCH_ZYNQ
