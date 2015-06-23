@@ -482,6 +482,12 @@ config EDAC_ARMADA_XP
 	  Support for error correction and detection on the Marvell Aramada XP
 	  DDR RAM and L2 cache controllers.
 
+config EDAC_CADENCE_MC
+	tristate "Cadence Memory Controller"
+	help
+	  Support for error detection and correction on the
+	  Cadence DDR memory controller.
+
 config EDAC_SYNOPSYS
 	tristate "Synopsys DDR Memory Controller"
 	depends on ARCH_ZYNQ || ARCH_ZYNQMP
