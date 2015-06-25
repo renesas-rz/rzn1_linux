@@ -170,6 +170,7 @@ struct sja1000_priv {
 	u16 flags;		/* custom mode flags */
 	u8 ocr;			/* output control register */
 	u8 cdr;			/* clock divider register */
+	u8 cdr_missing;		/* missing clock divider register */
 };
 
 struct net_device *alloc_sja1000dev(int sizeof_priv);
