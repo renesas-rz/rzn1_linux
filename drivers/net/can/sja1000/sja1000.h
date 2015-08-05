@@ -171,6 +171,7 @@ struct sja1000_priv {
 	u8 ocr;			/* output control register */
 	u8 cdr;			/* clock divider register */
 	u8 cdr_missing;		/* missing clock divider register */
+	bool no_loopback;	/* HW doesn't see tx messages on rx */
 };
 
 struct net_device *alloc_sja1000dev(int sizeof_priv);
