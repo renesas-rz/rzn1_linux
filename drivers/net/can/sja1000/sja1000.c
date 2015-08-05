@@ -668,12 +668,14 @@ static const struct net_device_ops sja1000_netdev_ops = {
 
 int register_sja1000dev(struct net_device *dev)
 {
+	struct sja1000_priv *priv = netdev_priv(dev);
 	int ret;
 
 	if (!sja1000_probe_chip(dev))
 		return -ENODEV;
 
-	dev->flags |= IFF_ECHO;	/* we support local echo */
+	if (!priv->no_loopback)
+		dev->flags |= IFF_ECHO;	/* we support local echo */
 	dev->netdev_ops = &sja1000_netdev_ops;
 
 	set_reset_mode(dev);

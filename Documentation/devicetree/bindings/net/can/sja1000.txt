@@ -46,6 +46,8 @@ Optional properties:
 
 - nxp,no-cdr : Indicates that the Clock Divider Register is not present.
 
+- nxp,no-loopback : Indicates the hardware does not loopback messages.
+
 For further information, please have a look to the SJA1000 data sheet.
 
 Examples:

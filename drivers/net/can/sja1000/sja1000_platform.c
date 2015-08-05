@@ -203,6 +203,9 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
 
 	if (of_property_read_bool(of, "nxp,no-cdr"))
 		priv->cdr_missing = 1;
+
+	if (of_property_read_bool(of, "nxp,no-loopback"))
+		priv->no_loopback = true;
 }
 
 static struct sja1000_of_data technologic_data = {
