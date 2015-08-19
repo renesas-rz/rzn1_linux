@@ -1,0 +1,59 @@
+* Digital Blocks DB9000 LCD Controller
+
+Required properties:
+- compatible: Should be "digitalblocks,db9000-clcd".
+- reg: Address and length of the register set for lcdif
+- interrupts: Should contain lcdif interrupts
+- display : phandle to display node (see below for details)
+- clocks: Clock phandles to the pixel and bus (ahb) clocks.
+
+Optional properties:
+- backlight-pwm-clock : If using the DB9000 PWM output for a backlight, this
+  specifies the PWM output clock required.
+- blink-period-ms : If built with CONFIG_FB_DB9000_BLINK, this specifies the
+  blink period in ms, see the config menu.
+- bus-width : The width of the interface to the LCD panel that is actually
+  used. This is only needed if the bits-per-pixel property is set to 16 or
+  less, but the board connects to a 24-bit panel. In which case, the controller
+  will shift the 16-bit data to the most significant bits of the panel. If the
+  buffer is less than 16bpp, the controller will use a palette to effectively
+  generate 16bpp data for the panel.
+
+* display node
+
+Required properties:
+- bits-per-pixel : <1>, <2>, <4>, <8> for paletted RGB565, <16> for RGB565,
+  <24> for packed RGB888, <32> for RGB888.
+
+Required sub-node:
+- display-timings : Refer to binding doc display-timing.txt for details.
+
+Examples:
+
+fb0: fb@RZN1_LCD_BASE {
+	compatible = "digitalblocks,db9000-clcd";
+	interrupts = <GIC_SPI RZN1_IRQ_LCD IRQ_TYPE_LEVEL_HIGH>;
+	reg = <RZN1_LCD_BASE RZN1_LCD_SIZE>;
+	clock-names = "pclk", "ahb";
+	clocks = <&clk_slcd>, <&clk_ahb_lcd>;
+	status = "okay";
+
+	bits-per-pixel = <32>;
+	display-timings {
+		native-mode = <&timing0>;
+		timing0: timing0 {
+			clock-frequency = <8000000>;
+			hactive = <320>;
+			vactive = <240>;
+			hback-porch = <68>;
+			hfront-porch = <20>;
+			vback-porch = <18>;
+			vfront-porch = <4>;
+			hsync-len = <2>;
+			vsync-len = <2>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+		};
+	};
+};

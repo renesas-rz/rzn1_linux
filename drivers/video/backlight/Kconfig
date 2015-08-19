@@ -186,6 +186,18 @@ config BACKLIGHT_ATMEL_LCDC
 	  If in doubt, it's safe to enable this option; it doesn't kick
 	  in unless the board's description says it's wired that way.
 
+config BACKLIGHT_DB9000_LCD
+	bool "Digital Block DB9000 LCDC Contrast-as-Backlight control"
+	depends on FB_DB9000
+	help
+	  This provides a backlight control internal to the DB9000 LCDC
+	  driver.  If the LCD "contrast control" on your board is wired
+	  so it controls the backlight brightness, select this option to
+	  export this as a PWM-based backlight control.
+
+	  If in doubt, it's safe to enable this option; it doesn't kick
+	  in unless the board's description says it's wired that way.
+
 config BACKLIGHT_EP93XX
 	tristate "Cirrus EP93xx Backlight Driver"
 	depends on FB_EP93XX

@@ -96,6 +96,7 @@ devantech	Devantech, Ltd.
 dh	DH electronics GmbH
 digi	Digi International Inc.
 digilent	Diglent, Inc.
+digitalblocks	Digital Blocks, Inc.
 dioo	Dioo Microcircuit Co., Ltd
 dlc	DLC Display Co., Ltd.
 dlg	Dialog Semiconductor
