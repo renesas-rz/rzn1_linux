@@ -1,0 +1,66 @@
+Device tree bindings for Renesas Medium Speed External Bus Interface (MSEBI)
+found on the RZ/N1 device.
+
+The actual devices are instantiated from the child nodes of a MSEBI node.
+
+Required properties:
+
+ - compatible:		Should contain "renesas,rznr-msebi"
+- reg:			A resource specifier for the register space
+			(see the example below)
+ - clocks:		the clock, see the example below.
+ - #address-cells:	Must be set to 2 to allow memory address translation
+ - #size-cells:		Must be set to 1 to allow CS address passing
+ - ranges:		Must be set up to reflect the memory layout with four
+			integer values for each chip-select line in use:
+			   <cs-number> 0 <physical address of mapping> <size>
+
+ - renesas,msebi-config: The value to write into the CONFIG register.
+
+ - renesas,msebi-config-dirbuf: The value to write into the CONFIG_DIRBUF
+			register.
+
+Timing property for child nodes.
+
+ - renesas,msebi-cs-timing: The timing array, contains timing values for the
+			child node. We can get the CS index from the child
+			node's "reg" property. It consists of 3 registers values
+			that correspond to:
+			CYCLESIZE_CSn register value.
+			SETUPHOLD_CSn register value.
+			CONFIG_CSn register value.
+
+Example for an RZ/N1 device, with two 8-bit synchronous memories attached:
+
+	msebi: msebim: memory-controller@RZN1_MSEBI_M0_BASE {
+		compatible = "renesas,rzn1-msebi";
+		#address-cells = <2>;
+		#size-cells = <1>;
+		reg = <RZN1_MSEBI_M0_BASE RZN1_MSEBI_M0_SIZE>;
+		clocks = <&clk_fw_msebi_m>;
+		ranges = <
+			0 0 0x60000000 0x08000000
+			1 0 0x68000000 0x08000000
+			2 0 0x70000000 0x08000000
+			3 0 0x78000000 0x08000000
+		>;
+		renesas,msebi-config = <0x00000490>;
+		renesas,msebi-config-dirbuf = <0x00000000>;
+		interrupts = <GIC_SPI RZN1_IRQ_MSEBIM IRQ_TYPE_LEVEL_HIGH>;
+		status = "okay";
+
+		cs0: cs0@0,0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0 0x00000000 0x04000000>;
+			// Synchronous 8-bit
+			renesas,msebi-cs-timing = <0x00000000 0x00010001 0x00000005>;
+		};
+		cs1: cs1@0,0 {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <1 0x00000000 0x04000000>;
+			// Synchronous 8-bit
+			renesas,msebi-cs-timing = <0x00000000 0x00010001 0x00000005>;
+		};
+	};

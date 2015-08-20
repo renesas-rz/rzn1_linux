@@ -58,6 +58,14 @@ config MIPS_CDMM
 	  platform code needs to implement mips_cdmm_phys_base() (see
 	  asm/cdmm.h).
 
+config RZN1_MSEBI
+	bool "MSEBI driver"
+	depends on ARCH_RZN1
+	help
+	  Driver for MSEBI Master controller.
+	  The MSEBI (Medium Speed External Bus Interface) is programmable bus.
+	  You can attach many different devices on it, such as NOR, onenand.
+
 config MVEBU_MBUS
 	bool
 	depends on PLAT_ORION
