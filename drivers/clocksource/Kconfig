@@ -127,6 +127,9 @@ config RDA_TIMER
 	help
 	  Enables the support for the RDA Micro timer driver.
 
+config RZN1_TIMER
+	bool "Renesas RZ/N1 Timer"
+
 config SUN4I_TIMER
 	bool "Sun4i timer driver" if COMPILE_TEST
 	depends on HAS_IOMEM
