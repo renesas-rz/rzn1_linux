@@ -1,0 +1,95 @@
+* MTD QSPI driver for RZN1
+
+This driver should contains subnodes that corresponds to the m25p80.txt format,
+with a few optional options.
+
+Required properties:
+- #address-cells, #size-cells : Must be present if the device has sub-nodes
+      representing flash devices on different CS lines.
+- compatible : Should be "renesas,rzn1-qspi".
+- reg-names : "qspi", "qspi-mapping" -- necessary to locate which address range
+      is the register one, and which one is the memory map for the flash.
+- clock-names : must be "flexway", "pclk"
+
+Optional properties:
+- renesas,rzn1-cs_mux[ = <0/1>];
+	This specifies whether we want to use the discrete CS lines (default
+	mode) to handle up to 4 NOR chips, or if we want to use the 'mux'
+	mode that can handle up to 16 of them.
+	Note that this property is optional (default to zero), and it will also
+	default to '1' in the case any of the sub flashes specified below have
+	a CS number >3
+Furthermore, each sub node for each chip may contain (on top of the m25p80):
+- spi-max-frequency: Same definition as spi-bus
+- spi-rx-bus-width : Same definition as spi-bus
+- spi-cpha : Same definition as spi-bus
+- spi-cpol : Same definition as spi-bus
+
+- renesas,rzn1-read-cmd [ = <COMMAND DUMMY ADDR_MUX>];
+	Syntax is:
+	    + COMMAND: Read Array opcode to use
+	    + DUMMY: Number of dummy/mode cycles
+	    + ADDR_MUX: 0/1: If the address sent to the NOR flash is sent on
+			     multiple pins.
+	The number of address bytes is optional, if not set here (or zero)
+	the driver will rely on what the spi-nor framework decides to set it
+	to. It's likely it will attempt to set the device forcibly in 4 bytes
+	mode, which can be an issue at reset time (for the ROM and such) if
+	the SPI NOR doesn't have a dedicated coupled reset line.
+	IMPORTANT NOTE: Use of this property requires the SPI NOR flash to be
+		marked as SPI_NOR_DUAL_READ and/or SPI_NOR_QUAD_READ in the
+		spi-nor driver in drivers/mtd/spi-nor/spi-nor.c -- without this
+		flag, the driver will fail to work.
+- renesas,rzn1-readcap-delay = <N>;
+	Specifies the read delay to use when talking to the flash at high speed
+	The value can be probed using u-boot and should be constant for each
+	type of flash, however board layout might have some impact.
+
+Example:
+
+spi@RZN1_QSPI_BASE {
+	compatible = "renesas,rzn1-qspi";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reg = <RZN1_QSPI_BASE RZN1_QSPI_SIZE
+		RZN1_V_QSPI_BASE RZN1_V_QSPI_SIZE>;
+	reg-names = "qspi", "qspi-mapping";
+	interrupts = <GIC_SPI
+		RZN1_IRQ_QSPI0 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&clk_fw_qspi0>, <&clk_qspi0>;
+	clock-names = "flexway", "pclk";
+	status = "okay";
+
+	renesas,rzn1-cs_mux = <0>;
+
+	flash: mx25l12805@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "st,mx25l12805d";
+		reg = <0>;
+		spi-max-frequency = <62500000>;
+		spi-cpha;
+		spi-cpol;
+
+		/* Use 0x6b command to read data on 4 lines,
+		   using 8 dummy cycles, and
+		   the address is also sent on 4 lines.
+		   Check your datasheet for the 'optimal' opcode to use;
+		   the spi-nor upper layer defaults to slightly less
+		   optimal opcodes */
+		spi-rx-bus-width = <4>;
+		renesas,rzn1-read-cmd = <0x6b 8 1>;
+
+		renesas,rzn1-readcap-delay = <1>;
+
+		partition@0 {
+			/* 1MB */
+			label = "loader";
+			reg = <0x000000 0x00100000>;
+		};
+		partition@1 {
+			/* 1MB */
+			label = "u-boot";
+			reg = <0x100000 0x00100000>;
+		};
+	};
