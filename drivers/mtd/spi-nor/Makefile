@@ -20,3 +20,4 @@ spi-nor-objs			+= xmc.o
 obj-$(CONFIG_MTD_SPI_NOR)	+= spi-nor.o
 
 obj-$(CONFIG_MTD_SPI_NOR)	+= controllers/
+obj-$(CONFIG_RZN1_QSPI)		+= rzn1-qspi.o

@@ -70,4 +70,21 @@ endchoice
 
 source "drivers/mtd/spi-nor/controllers/Kconfig"
 
+config RZN1_QSPI
+	tristate "RZ/N1 Cadence Quad SPI controller"
+	depends on ARCH_RZN1
+	help
+	  This enables support for the Quad SPI controller in master mode.
+
+config RZN1_QSPI_NR_CS
+	int "Max Number of QSPI chips"
+	range 1 16
+	default 2
+	depends on RZN1_QSPI
+	help
+	  Specifies the maximum number of chips handled by the driver.
+	  from 1 to 4, the bitfield method of CS selection can be used
+	  (this is the default, simple mode). When using more than 4,
+	  the 'encoding' mode needs be be used. See Datasheet for details.
+
 endif # MTD_SPI_NOR

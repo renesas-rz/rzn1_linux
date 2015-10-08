@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: GPL-2.0-only
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mtd/renesas,rzn1-qspi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MTD QSPI driver for RZ/N1
+
+maintainers:
+  - Gareth Williams <gareth.williams.jx@renesas.com>
+
+description: |
+  This driver should contains subnodes that corresponds to the
+  jedec,spi-nor.yaml format, with a few optional options. Furthermore,
+  each sub node for each chip may contain the following with the same
+  definition as spi-bus -
+  spi-max-frequency
+  spi-rx-bus-width
+  spi-cpha
+  spi-cpol
+
+  compatible:
+    const: renesas,rzn1-qspi
+
+properties:
+  reg:
+    minItems: 4
+    maxItems: 4
+  reg-names:
+    description: |
+      qspi for the controller registers, qspi-mapping for memory-mapped access
+      to the flash device.
+    items:
+      - const: qspi
+      - const: qspi-mapping
+
+  clocks:
+    minItems: 2
+    maxItems: 4
+  clock-names:
+    items:
+      - const: hclk
+      - const: pclk
+
+  renesas,rzn1-cs_mux:
+    $ref: /schemas/types.yaml#/definitions/boolean
+    description: |
+      This specifies whether we want to use the discrete CS lines (default
+      mode) to handle up to 4 NOR chips, or if we want to use the 'mux'
+      mode that can handle up to 16 of them.
+      Note that this property is optional (default to zero), and it will also
+      default to '1' in the case any of the sub flashes specified below have
+      a CS number >3.
+
+  renesas,rzn1-read-cmd:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: |
+      Syntax is [<COMMAND DUMMY ADDR_MUX>]
+      COMMAND -  Read Array opcode to use
+      DUMMY - Number of dummy/mode cycles
+      ADDR_MUX - 0/1 If the address sent to the NOR flash is sent on
+      multiple pins.
+      The number of address bytes is optional, if not set here (or zero)
+      the driver will rely on what the spi-nor framework decides to set it
+      to. It's likely it will attempt to set the device forcibly in 4 bytes
+      mode, which can be an issue at reset time (for the ROM and such) if
+      the SPI NOR doesn't have a dedicated coupled reset line.
+      IMPORTANT NOTE Use of this property requires the SPI NOR flash to be
+      marked as SPI_NOR_DUAL_READ and/or SPI_NOR_QUAD_READ in the
+      spi-nor driver in drivers/mtd/spi-nor/spi-nor.c -- without this
+      flag, the driver will fail to work.
+
+  renesas,rzn1-readcap-delay:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      Specifies the read delay to use when talking to the flash at high speed
+      The value can be probed using u-boot and should be constant for each
+      type of flash, however board layout might have some impact.
+
+required:
+  - compatible
+  - reg-names
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/r9a06g032-sysctrl.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/soc/rzn1-memory-map.h>
+    qspi: qspi0: spi@40005000 {
+        compatible = "renesas,rzn1-qspi";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        reg = <0x40005000 0x1000
+               0x10000000 0x10000000>;
+        reg-names = "qspi", "qspi-mapping";
+        interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&sysctrl R9A06G032_HCLK_QSPI0>, <&sysctrl R9A06G032_CLK_QSPI0>;
+        clock-names = "hclk", "pclk";
+        status = "disabled";
+    };
