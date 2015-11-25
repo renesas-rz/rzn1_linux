@@ -157,6 +157,17 @@ config USB_PXA25X
 	   dynamically linked module called "pxa25x_udc" and force all
 	   gadget drivers to also be dynamically linked.
 
+config USBF_RENESAS
+	tristate "Renesas USB Function Peripheral Block (RZ/N1)"
+	depends on ARCH_RZN1
+	help
+	   Renesas RZ/N1 USB function block. Has integrated DMA, 16
+	   endpoints. The pretty name for this IP is
+	   "NPPFAHBUSB2HOSTFUNCV31,41". Yes, it is.
+
+	   Say "y" to link the driver statically, or "m" to build a
+	   dynamically linked module called "usbf_renesas".
+
 # if there's only one gadget driver, using only two bulk endpoints,
 # don't waste memory for the other endpoints
 config USB_PXA25X_SMALL
