@@ -41,3 +41,5 @@ obj-$(CONFIG_USB_GADGET_XILINX)	+= udc-xilinx.o
 obj-$(CONFIG_USB_SNP_UDC_PLAT) += snps_udc_plat.o
 obj-$(CONFIG_USB_ASPEED_VHUB)	+= aspeed-vhub/
 obj-$(CONFIG_USB_BDC_UDC)	+= bdc/
+obj-$(CONFIG_USBF_RENESAS)	+= usbf-renesas-mod.o
+usbf-renesas-mod-objs		:= usbf-renesas-ep0.o usbf-renesas-epn.o usbf-renesas.o

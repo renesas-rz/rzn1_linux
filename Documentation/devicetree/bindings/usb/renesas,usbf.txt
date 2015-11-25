@@ -1,0 +1,80 @@
+Required properties :
+ - compatible : Should be "renesas,usbf".
+ - reg : Offset and length of the register set for the device.
+ - clock-names: needs to be "axi".
+ - clocks: must refer to the clock used by the IP.
+ - interrupts: Should list the two interrupts needed by the IP
+
+Optional Properties:
+ - renesas,sram-conf[,<gadget-name>]
+	This property allows you to specify the SRAM allocated per
+	endpoint types, OR the SRAM allocated for each endpoint
+	individually.
+	In the first instance, if you specify a 3 element array, this
+	specifies the number of USB packets per endpoint /type/, for
+	example:
+		renesas,sram-ep-packets = <4 3 0>;
+	Will allocate 4 packets (of 512, implicitly) to the bulk
+	endpoints (first element); 3 packets (or whatever size the
+	descriptor specifies) to the interrupt endpoints, and the default
+	value (which is 2, incidentally) of packets to the isochronous
+	endpoints.
+	In the second instance, you can specify the number of packets
+	per endpoint by passing an array of more than 3 elements:
+		renesas,sram-conf = <
+			4 4 0 0 0	/* -bulk endpoints */
+			4 0 0 0		/* -int endpoints */
+			0 0 0 0 0 0>;	/* -iso endpoints */
+	In this case, you can specify the size to the endpoints you
+	know are being used.
+	Note that you can tie a memory configuration for a particular
+	gadget configuration; the driver will first look for the property
+	name concatenated with the currently configured gadget before
+	doing a fallback on the generic name. Thus:
+		renesas,sram-conf,g_ether = <6 2 0>;
+		renesas,sram-conf = <2 8 0>;
+	This is a valid declaration providing a configuration for the
+	RNDIS g_ether driver, and another configuration for any other
+	cases/gadget.
+
+ - renesas,sram-size
+	The renesas IP can be configured with variable amount of SRAM,
+	variable type/number of endpoints, and some of them disabled.
+	The sram-size property is the only one that cannot be inferred
+	by probing, so this properly allows you to specify it as per
+	your device configuration.
+	The SRAM size is just used to make sure you don't allocate too
+	much using the renesas,sram-conf property, it can be left out,
+	but doing so will prevent any warning from being emitted, and
+	that could result in silent failure.
+	NOTE: The ram size value is the number of 32 bits words in SRAM,
+	      and NOT a byte value.
+		renesas,sram-size = <5024>;
+
+ - renesas,dma-threshold
+	Specifies the packet size at below which we don't even attempt
+	to do a DMA transfer. The DMA introduces some latency as the IRQ
+	needs to be routed back to the driver, so a small packet size with DMA
+	might take longer to transfer than sending it using plain PIO.
+	The threshold is by default 64, however, it was not set using any
+	measurement, so the value probably should be measured using proper
+	empirical testing for the use you make of the driver.
+
+Example:
+	usbf: usbf@RZN1_USB_DEV_BASE {
+		compatible = "renesas,usbf";
+		reg = <RZN1_USB_DEV_BASE RZN1_USB_DEV_SIZE>;
+		interrupts =
+			<GIC_SPI
+				RZN1_IRQ_USBF_EPC IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI
+				RZN1_IRQ_USBF IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "axi";
+		clocks = <&clk_fw_usb_f>;
+
+		renesas,sram-size = <5024>; /* 32 bits words */
+		renesas,sram-conf,g_ether = <6 6 0 0 0 4>;
+		renesas,sram-conf,g_mass_storage = <8 8 0 0 0 0>;
+		renesas,dma-threshold = <64>;
+		status = "okay";
+	};
