@@ -25,6 +25,7 @@
 #include <linux/irq.h>
 #include <linux/can/dev.h>
 #include <linux/can/platform/sja1000.h>
+#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -228,6 +229,7 @@ static int sp_probe(struct platform_device *pdev)
 	const struct of_device_id *of_id;
 	const struct sja1000_of_data *of_data = NULL;
 	size_t priv_sz = 0;
+	struct clk *clk;
 
 	pdata = dev_get_platdata(&pdev->dev);
 	if (!pdata && !of) {
@@ -289,6 +291,13 @@ static int sp_probe(struct platform_device *pdev)
 		}
 	} else {
 		sp_populate(priv, pdata, res_mem->flags);
+	}
+
+	/* If we have a clock, enable it and use it to get the clock rate */
+	clk = devm_clk_get(&pdev->dev, NULL);
+	if (!IS_ERR(clk)) {
+		clk_prepare_enable(clk);
+		priv->can.clock.freq = clk_get_rate(clk) / 2;
 	}
 
 	platform_set_drvdata(pdev, dev);
