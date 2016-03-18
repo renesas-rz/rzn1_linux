@@ -1,0 +1,29 @@
+#
+# MoreThanIP device configuration
+#
+
+config NET_VENDOR_MORETHANIP
+	bool "MoreThanIP devices"
+	default n
+	---help---
+	  If you have a network (Ethernet) hardware belonging to this class, say
+	  Y and read the Ethernet-HOWTO, available from
+	  <http://www.tldp.org/docs.html#howto>.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about MoreThanIP drivers. If you say Y, you will be
+	  asked for your specific IP in the following questions.
+
+if NET_VENDOR_MORETHANIP
+
+config MTIP_SWITCH
+	tristate "Embedded MoreThanIP 5-port Ethernet switch"
+	depends on OF
+	select MII
+	select PHYLIB
+	---help---
+	  Embedded MoreThanIP 5-port Ethernet switch.
+	  The Renesas RZ/N1 device has this switch built in.
+
+endif # NET_VENDOR_MORETHANIP
