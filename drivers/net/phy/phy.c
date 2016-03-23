@@ -917,12 +917,18 @@ static void phy_link_up(struct phy_device *phydev)
 {
 	phydev->phy_link_change(phydev, true, true);
 	phy_led_trigger_change_speed(phydev);
+
+	if (phydev->pre_adjust_link)
+		phydev->pre_adjust_link(phydev->pre_adjust_link_priv);
 }
 
 static void phy_link_down(struct phy_device *phydev, bool do_carrier)
 {
 	phydev->phy_link_change(phydev, false, do_carrier);
 	phy_led_trigger_change_speed(phydev);
+
+	if (phydev->pre_adjust_link)
+		phydev->pre_adjust_link(phydev->pre_adjust_link_priv);
 }
 
 /**
