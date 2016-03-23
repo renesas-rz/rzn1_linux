@@ -41,5 +41,11 @@ config RAVB
 	  Renesas Ethernet AVB device driver.
 	  This driver supports the following SoCs:
 		- R8A779x.
+config RZN1_MIIC
+	tristate "Renesas RZ/N1 RGMII/GMII Convertor"
+	select MII
+	help
+	  The Renesas RZ/N1 device uses an RGMII/GMII Convertor (MIIC) on each
+	  ethernet PHY interface.
 
 endif # NET_VENDOR_RENESAS
