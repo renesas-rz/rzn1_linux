@@ -21,8 +21,12 @@
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/of_dma.h>
+#include <linux/of_platform.h>
 #include <linux/acpi.h>
 #include <linux/acpi_dma.h>
+#ifdef CONFIG_ARCH_RZN1
+#include <linux/sysctrl-rzn1.h>
+#endif
 
 #include "internal.h"
 
@@ -172,6 +176,48 @@ dw_dma_parse_dt(struct platform_device *pdev)
 }
 #endif
 
+#ifdef CONFIG_ARCH_RZN1
+static int rzn1_dma_init(struct dw_dma_chip *chip)
+{
+	struct device *dev = chip->dev;
+	struct device_node *node = dev->of_node;
+	u32 dmamux;
+	u32 dmamux_mask;
+	u32 val;
+
+	if (of_property_read_u32(node, "rzn1_cfg_dmamux", &dmamux)) {
+		dev_err(dev, "%s missing rzn1_cfg_dmamux property\n",
+			node->full_name);
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32(node, "rzn1_cfg_dmamux_mask", &dmamux_mask)) {
+		dev_err(dev, "%s missing rzn1_cfg_dmamux_mask property\n",
+			node->full_name);
+		return -EINVAL;
+	}
+
+	val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_CFG_DMAMUX);
+	val &= ~dmamux_mask;
+	val |= dmamux;
+	rzn1_sysctrl_writel(val, RZN1_SYSCTRL_REG_CFG_DMAMUX);
+
+	dev_info(dev, "RZ/N1 init cfg_dmamux=0x%x\n", val);
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_OF
+static const struct of_device_id dw_dma_of_id_table[] = {
+	{ .compatible = "snps,dma-spear1340" },
+#ifdef CONFIG_ARCH_RZN1
+	{ .compatible = "snps,dma-rzn1", .data = rzn1_dma_init },
+#endif
+	{}
+};
+MODULE_DEVICE_TABLE(of, dw_dma_of_id_table);
+#endif
+
 static int dw_probe(struct platform_device *pdev)
 {
 	struct dw_dma_chip *chip;
@@ -179,6 +225,8 @@ static int dw_probe(struct platform_device *pdev)
 	struct resource *mem;
 	const struct dw_dma_platform_data *pdata;
 	int err;
+	const struct of_device_id *of_id;
+	int (*hw_init_fn)(struct dw_dma_chip *);
 
 	chip = devm_kzalloc(dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -231,6 +279,16 @@ static int dw_probe(struct platform_device *pdev)
 	if (ACPI_HANDLE(&pdev->dev))
 		dw_dma_acpi_controller_register(chip->dw);
 
+	/* Custom setup */
+	of_id = of_match_device(dw_dma_of_id_table, chip->dev);
+	if (!of_id || !of_id->data)
+		return -EINVAL;
+	hw_init_fn = of_id->data;
+
+	err = hw_init_fn(chip);
+	if (err)
+		return -EINVAL;
+
 	return 0;
 
 err_dw_dma_probe:
@@ -272,14 +330,6 @@ static void dw_shutdown(struct platform_device *pdev)
 
 	clk_disable_unprepare(chip->clk);
 }
-
-#ifdef CONFIG_OF
-static const struct of_device_id dw_dma_of_id_table[] = {
-	{ .compatible = "snps,dma-spear1340" },
-	{}
-};
-MODULE_DEVICE_TABLE(of, dw_dma_of_id_table);
-#endif
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id dw_dma_acpi_id_table[] = {

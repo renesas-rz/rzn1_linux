@@ -1,7 +1,7 @@
 * Synopsys Designware DMA Controller
 
 Required properties:
-- compatible: "snps,dma-spear1340"
+- compatible: "snps,dma-spear1340" or "snps,dma-rzn1"
 - reg: Address range of the DMAC registers
 - interrupt: Should contain the DMAC interrupt number
 - dma-channels: Number of channels supported by hardware
@@ -21,6 +21,11 @@ Deprecated properties:
 - data_width: Maximum data width supported by hardware per AHB master
   (0 - 8bits, 1 - 16bits, ..., 5 - 256bits)
 
+If compatible with "snps,dma-rzn1", the following properties are required:
+- rzn1_cfg_dmamux: This value is masked with the rzn1_cfg_dmamux_mask value and
+  then written to the RZ/N1 SYSCTRL CFG_DMAMUX register. This register switches
+  dma request signal between different peripherals.
+- rzn1_cfg_dmamux_mask: See rzn1_cfg_dmamux.
 
 Optional properties:
 - is_private: The device channels should be marked as private and not for by the
