@@ -33,6 +33,10 @@
 #define DW_SPI_VERSION			0x5c
 #define DW_SPI_DR			0x60
 
+/* RZ/N1 special registers */
+#define DW_SPI_TDMACR			0x100
+#define DW_SPI_RDMACR			0x104
+
 /* Bit fields in CTRLR0 */
 #define SPI_DFS_OFFSET			0
 
@@ -78,6 +82,13 @@
 /* Bit fields in DMACR */
 #define SPI_DMA_RDMAE			(1 << 0)
 #define SPI_DMA_TDMAE			(1 << 1)
+
+/* RZ/N1 special registers */
+#define SPI_xDMACR_BLK_SIZE_OFFSET	3
+#define SPI_xDMACR_DMA_EN		(1 << 0)
+#define SPI_xDMACR_1_WORD_BURST		(0 << 1)
+#define SPI_xDMACR_4_WORD_BURST		(1 << 1)
+#define SPI_xDMACR_8_WORD_BURST		(2 << 1)
 
 /* TX RX interrupt level threshold, max can be 256 */
 #define SPI_INT_THRESHOLD		32
