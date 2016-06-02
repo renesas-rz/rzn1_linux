@@ -247,6 +247,12 @@ config MTD_NAND_DOCG4
 	  by the block containing the saftl partition table.  This is probably
 	  typical.
 
+config MTD_NAND_EVATRONIX
+	tristate "Enable Evatronix NANDFLASH-CTRL driver"
+	help
+	  NAND hardware driver for Evatronix NANDFLASH-CTRL
+	  NAND flash controller.
+
 config MTD_NAND_SHARPSL
 	tristate "Support for NAND Flash on Sharp SL Series (C7xx + others)"
 	depends on ARCH_PXA || COMPILE_TEST
