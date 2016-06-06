@@ -307,6 +307,8 @@ struct spi_nor {
 			size_t len, u_char *read_buf);
 	ssize_t (*write)(struct spi_nor *nor, loff_t to,
 			size_t len, const u_char *write_buf);
+	ssize_t (*write_mmap)(struct spi_nor *nor, loff_t to,
+			size_t len, const u_char *write_buf);
 	int (*erase)(struct spi_nor *nor, loff_t offs);
 
 	int (*flash_lock)(struct spi_nor *nor, loff_t ofs, uint64_t len);
