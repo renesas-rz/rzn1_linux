@@ -1,0 +1,436 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2016-2019 Renesas Electronics Europe Ltd
+ *
+ * Device Tree Source for the RZN1D Demo Board
+ * This dts is for use when the Cortex M3 controls GMAC1, the 5-Port Switch
+ * and the RGMII/GMII Converters for the ports connected to the Switch.
+ */
+
+/dts-v1/;
+
+#include "rzn1.dtsi"
+#include "rzn1-clocks.dtsi"
+
+/ {
+	model = "RZ/N1D Demo Board";
+	compatible = "renesas,rzn1d-db", "renesas,rzn1";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+	sram@20000000 {
+		compatible = "mmio-sram";
+		reg = <0x20000000 0x100000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		c2c_sram@f8000 {
+			compatible = "ctc-sram";
+			reg = <0xf8000 0x8000>;
+		};
+	};
+	hoard: cat: nmi: rmii {
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+	leds {
+		compatible = "gpio-leds";
+
+		led_1 {
+			label = "pl_gpio92";
+			gpios = <&gpio1b 23 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu0";
+		};
+		led_2 {
+			label = "pl_gpio93";
+			gpios = <&gpio1b 24 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu1";
+		};
+		pca0 {
+			label = "pca0";
+			gpios = <&pca9698 0 GPIO_ACTIVE_HIGH>;
+		};
+		pca1 {
+			label = "pca1";
+			gpios = <&pca9698 1 GPIO_ACTIVE_HIGH>;
+		};
+		pca2 {
+			label = "pca2";
+			gpios = <&pca9698 2 GPIO_ACTIVE_HIGH>;
+		};
+		pca3 {
+			label = "pca3";
+			gpios = <&pca9698 3 GPIO_ACTIVE_HIGH>;
+		};
+		pca4 {
+			label = "pca4";
+			gpios = <&pca9698 4 GPIO_ACTIVE_HIGH>;
+		};
+		pca5 {
+			label = "pca5";
+			gpios = <&pca9698 5 GPIO_ACTIVE_HIGH>;
+		};
+		pca6 {
+			label = "pca6";
+			gpios = <&pca9698 6 GPIO_ACTIVE_HIGH>;
+		};
+		pca7 {
+			label = "pca7";
+			gpios = <&pca9698 7 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
+
+/* Map the USB pinmux to the peripheral port */
+#define usb usbh_pci
+/* ethX refers to the physical pins for each ethernet interface. Here we simply
+ * place them in the hoard node to avoid errors if they are not used. Users of
+ * the pins will then indicate are needed by adding a pinctrl-0 entry for them.
+ */
+#define eth0 hoard
+#define eth1 hoard
+#define eth2 hoard
+#define eth3 hoard
+#define eth4 hoard
+#define refclk hoard
+#define mdio0 hoard
+#define mdio1 hoard
+#define lcd fb0
+
+#include "rzn1d-db-pinmux.dtsi"
+
+&ddrctrl {
+	status = "okay";
+};
+
+/* Note, timer0 may be used by the Cortex M3 software */
+&timer1 {
+	status = "okay";
+	/* Enable the /25 prescaler only on the 16-bit timers */
+	renesas,clk-prescaler = <1 1 1 1 1 1 0 0>;
+	renesas,timer-rating = <150 150 150 150 150 150 460 460>;
+};
+
+/* Calculated gpio irq numbers: gpioXa Y = 32*X + Y */
+#define GPIOA_IRQ(gpioa_block, nr)	(32 * (gpioa_block) + (nr))
+&gpioirqmux {
+	status = "okay";
+
+	interrupt-map =
+		<GPIOA_IRQ(2, 24) &gic GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,	/* pin 146: ETH Port 1 IRQ */
+		<GPIOA_IRQ(2,  4) &gic GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,	/* pin 126: ETH Port 2 IRQ */
+		<GPIOA_IRQ(1, 28) &gic GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,	/* pin 118: ETH Port 3 IRQ */
+		<GPIOA_IRQ(2, 25) &gic GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,	/* pin 147: ETH Port 4 IRQ */
+		<GPIOA_IRQ(2, 27) &gic GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,	/* pin 149: ETH Port 5 IRQ */
+		<GPIOA_IRQ(2, 26) &gic GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;	/* pin 148: TouchSCRN_IRQ */
+};
+
+&uart0 {
+	status = "okay";
+	u-boot,dm-pre-reloc;
+	dont-change-baud-clock;
+};
+
+&uart2 {
+	pinctrl-0 = <&pins_uart2>;
+	pinctrl-names = "default";
+	status = "okay";
+	dont-change-baud-clock;
+};
+
+&uart3 {
+	pinctrl-0 = <&pins_uart3>;
+	pinctrl-names = "default";
+	status = "okay";
+	dont-change-baud-clock;
+};
+
+&i2c1 {
+	pinctrl-0 = <&pins_i2c1>;
+	pinctrl-names = "default";
+	status = "okay";
+	clock-frequency = <400000>;
+	pca9698: gpio@20 {
+		compatible = "nxp,pca9698";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-bank-name="pca";
+
+		/* gpio-hogs to enable access to the EEPROM */
+		eeprom_ctrl0 {
+			gpio-hog;
+			gpios = <16 0>;
+			output-high;
+			line-name = "eeprom-ctrl0-gpio";
+		};
+		eeprom_ctrl1 {
+			gpio-hog;
+			gpios = <17 0>;
+			output-low;
+			line-name = "eeprom-ctrl1-gpio";
+		};
+		eeprom_ctrl2 {
+			gpio-hog;
+			gpios = <18 0>;
+			output-low;
+			line-name = "eeprom-ctrl2-gpio";
+		};
+	};
+	lm75: lm75@49 {
+		/* Ext Board: Temperature sensor */
+		compatible = "lm75";
+		reg = <0x49>;
+	};
+	at24@50 {
+		compatible = "at24,24c64";
+		pagesize = <32>;
+		reg = <0x50>;
+	};
+	polytouch: edt-ft5x06@38 {
+		/* Ext Board: touch sensor on LCD */
+		compatible = "edt,edt-ft5306", "edt,edt-ft5x06";
+		reg = <0x38>;
+		interrupt-parent = <&gpio2a>;
+		interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+		touchscreen-size-x = <800>;
+		touchscreen-size-y = <480>;
+		// touchscreen-swapped-x-y;
+	};
+};
+
+&gpio1 {
+	pinctrl-0 = <&pins_gpio1>;
+	pinctrl-names = "default";
+	status = "okay";
+	u-boot,dm-pre-reloc;
+};
+
+&gpio1a {
+	u-boot,dm-pre-reloc;
+};
+
+&gpio1b {
+	u-boot,dm-pre-reloc;
+};
+
+&gpio2 {
+	pinctrl-0 = <&pins_gpio2>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&gmac0 {
+	/* Only accessible from the Ext Board */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_mdio0>, <&pins_eth0>;
+
+	/*
+	 * Do not use GPIO 94 to reset the PHY. This signal is used to reset all
+	 * PHYs on the board, but the other PHYs are controlled by firmware on the
+	 * Cortex M3 and we do not want to disturb them. We rely on U-Boot to toggle
+	 * this reset pin.
+	 */
+
+	phy-handle = <&phy_mii0>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		phy_mii0: ethernet-phy@8 {
+			/* Ext Board: Marvell 88E1512 PHY on J22 */
+			device_type = "ethernet-phy";
+			phy-mode = "rgmii-id";
+			reg = <8>;
+			/* Set LED0 as active low link status, LED2 as interrupt */
+			marvell,reg-init = <3 16 0 0x1010 3 18 0 0x4980>;
+			interrupt-parent = <&gpio2a>;
+			interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
+		};
+	};
+};
+
+&eth_miic {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_refclk_rgmii>;
+
+	/*
+	 * This dts is for use Cortex M3 code, e.g. GOAL, that sets the RIN Mode
+	 * Control, so do not set it here.
+	 */
+
+	mii0: eth-mii0 {
+		phy-handle = <&phy_mii0>;
+	};
+};
+
+&qspi0 {
+	pinctrl-0 = <&pins_qspi0>;
+	pinctrl-names = "default";
+	status = "okay";
+	u-boot,dm-pre-reloc;
+
+	flash: mx25l25635@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "macronix,mx25l25635e", "spi-flash";
+		reg = <0>;
+		spi-max-frequency = <62500000>;
+		spi-cpha;
+		spi-cpol;
+		spi-rx-bus-width = <4>;
+		renesas,rzn1-read-cmd = <0xeb 6 1>;
+		renesas,rzn1-readcap-delay = <1>;
+		/* The properties below are used by U-Boot */
+		tshsl-ns = <30>;
+		tsd2d-ns = <3>;
+		tchsh-ns = <3>;
+		tslch-ns = <3>;
+		memory-map = <RZN1_V_QSPI_BASE RZN1_V_QSPI_SIZE>;
+		memory-map-write = <1>;
+		u-boot,dm-pre-reloc;
+
+		partition@0 {
+			/* 64KB */
+			label = "qspi0:spl";
+			reg = <0x0000000 0x00010000>;
+		};
+		partition@1 {
+			/* 64KB */
+			label = "qspi0:pkgt";
+			reg = <0x0010000 0x00010000>;
+		};
+		partition@2 {
+			/* 512KB */
+			label = "qspi0:u-boot";
+			reg = <0x0020000 0x00080000>;
+		};
+		partition@3 {
+			/* 64KB */
+			label = "qspi0:env";
+			reg = <0x00a0000 0x00010000>;
+		};
+		partition@4 {
+			/* 128KB */
+			label = "qspi0:dtb";
+			reg = <0x00b0000 0x00020000>;
+		};
+		partition@5 {
+			/* 1MB */
+			label = "qspi0:cm3";
+			reg = <0x00d0000 0x00100000>;
+		};
+		partition@6 {
+			/* 6MB */
+			label = "qspi0:kernel";
+			reg = <0x01d0000 0x00600000>;
+		};
+		partition@7 {
+			/* Remaining */
+			label = "qspi0:data";
+			reg = <0x07d0000 0>;
+		};
+	};
+};
+
+&usbf {
+	status = "okay";
+};
+
+&usbh_pci {
+	pinctrl-0 = <&pins_usb>;
+	pinctrl-names = "default";
+	/* Ext Board */
+	status = "okay";
+};
+
+&wdt0 {
+	status = "okay";
+};
+
+&dma0 {
+	status = "okay";
+	/* Select spi0, spi1, spi2, spi3, uart3, uart4, uart5, uart6 */
+	rzn1_cfg_dmamux = <0x0000ffff>;
+	rzn1_cfg_dmamux_mask = <0x0000ffff>;
+};
+
+&spi0 {
+	pinctrl-0 = <&pins_spi0>;
+	pinctrl-names = "default";
+	status = "okay";
+	dmas =  <&dma0 8 0 0>,
+		<&dma0 9 0 0>;
+	dma-names = "rx", "tx";
+
+	cs-gpios = <&gpio2a 31 GPIO_ACTIVE_LOW>;
+
+	/* Ext Board: Serial (SPI) F-RAM device (FM25V10-G) */
+	fram: fm25@0 {
+		compatible = "atmel,at25";
+		reg = <0>;
+		/* Max freq supported by RZ/N1 */
+		spi-max-frequency = <12500000>;
+		size = <131072>;
+		address-width = <24>;
+		pagesize = <4096>;
+	};
+};
+
+&sdio0 {
+	pinctrl-0 = <&pins_sdio0>;
+	pinctrl-names = "default";
+	/* Ext Board */
+	status = "okay";
+};
+
+&rtc0 {
+	status = "okay";
+};
+
+&can0 {
+	pinctrl-0 = <&pins_can0>;
+	pinctrl-names = "default";
+	/* Ext Board */
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-0 = <&pins_can1>;
+	pinctrl-names = "default";
+	/* Ext Board */
+	status = "okay";
+};
+
+&fb0 {
+	pinctrl-0 = <&pins_lcd>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	bits-per-pixel = <32>;
+	bus-width = <24>;
+
+	/* Ext Board: NewHaven 5" LCD module NHD-5.0-800480TF-ATXL#-CTP  */
+	backlight-pwm-clock = <300>;
+	display-timings {
+		native-mode = <&timing0>;
+		timing0: timing0 {
+			clock-frequency = <33400000>;
+			hactive = <800>;
+			vactive = <480>;
+			hback-porch = <88>;
+			hfront-porch = <40>;
+			vback-porch = <32>;
+			vfront-porch = <13>;
+			hsync-len = <1>;
+			vsync-len = <3>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+		};
+	};
+};
