@@ -1,0 +1,15 @@
+#
+# Core2Core
+#
+
+menu "RZ/N1 CtC"
+
+config RZNCTC
+	bool "RZ/N1 CtC (Core to Core) device support"
+	default n
+	help
+	  Say Y here if you want to support RZ/N1 CtC (Core to Core) communications.
+	  When in doubt, say "Y".
+
+endmenu
+
