@@ -10,3 +10,17 @@ config ARCH_RZN1
 	select PINCTRL
 	select PINCTRL_RZN1
 	select HAVE_SMP
+
+config RZN1_CM3
+	bool "Renesas RZ/N1 CM3 Firmware upload device"
+	default n
+	depends on ARCH_RZN1
+	help
+	  Utility driver that allows live upload of new CM3 firmware for the
+	  R-IN engine processor. This driver *may* not work in case the system
+	  is booted in NONSEC mode if the SRAM has been protected away.
+	  Any firmware written to this device is copied to SRAM, and the CM3
+	  is then reset. No support for 'safe shutdown' of the previous firmware
+	  is done by this driver.
+	  This driver at this stage is not recommended for production systems,
+	  it is mostly useful for developing new CM3 firmwares.
