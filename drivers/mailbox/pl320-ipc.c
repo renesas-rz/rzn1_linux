@@ -175,6 +175,14 @@ err:
 	return ret;
 }
 
+static int pl320_remove(struct amba_device *adev)
+{
+	free_irq(ipc_irq, NULL);
+	iounmap(ipc_base);
+
+	return 0;
+}
+
 static struct amba_id pl320_ids[] = {
 	{
 		.id	= 0x00041320,
@@ -189,6 +197,7 @@ static struct amba_driver pl320_driver = {
 	},
 	.id_table	= pl320_ids,
 	.probe		= pl320_probe,
+	.remove		= pl320_remove,
 };
 
 static int __init ipc_init(void)
