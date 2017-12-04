@@ -80,6 +80,7 @@ struct dw8250_data {
 	unsigned int		dma_capable:1;
 	bool			is_rzn1:1;
 	u32			cpr_val;
+	unsigned int		dont_change_baud_clock:1;
 };
 
 static inline u32 dw8250_readl_ext(struct uart_port *p, int offset)
@@ -345,6 +346,9 @@ static void dw8250_set_termios(struct uart_port *p, struct ktermios *termios,
 	if (IS_ERR(d->clk))
 		goto out;
 
+	if (d->dont_change_baud_clock)
+		goto out;
+
 	clk_disable_unprepare(d->clk);
 	rate = clk_round_rate(d->clk, baud * 16);
 	if (rate < 0)
@@ -491,6 +495,17 @@ static void dw8250_quirks(struct uart_port *p, struct dw8250_data *data)
 	if (p->dev->of_node) {
 		struct device_node *np = p->dev->of_node;
 		int id;
+
+		/*
+		 * On SoCs, it is common to have a baud clock that is very high
+		 * that works for all clock rates that the device is intended to
+		 * be used with. Also the clock is used for multiple UARTs and
+		 * so changing the clock rate can cause another UART to fail.
+		 * Therefore, if this DT prop exists, don't change the baud
+		 * clock rate at all.
+		 */
+		if (device_property_read_bool(p->dev, "dont-change-baud-clock"))
+			data->dont_change_baud_clock = true;
 
 		/* get index of serial line, if found in DT aliases */
 		id = of_alias_get_id(np, "serial");

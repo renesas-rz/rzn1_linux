@@ -38,6 +38,8 @@ Optional properties:
   Define this if your serial port does not use this pin.
 - cpr-value : If the IP does not have the optional Component Parameter
   Register (CPR), you can specify value using this property.
+- dont-change-baud-clock : If you do not want the baud clock rate to be modified
+  by the driver, use this property.
 
 Example:
 
