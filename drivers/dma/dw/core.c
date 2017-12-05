@@ -768,7 +768,17 @@ slave_sg_todev_fill_desc:
 
 			lli_write(desc, sar, mem);
 			lli_write(desc, dar, reg);
-			lli_write(desc, ctlhi, bytes2block(dwc, len, mem_width, &dlen));
+			/*
+			 * If the peripheral is flow controller, the transfer
+			 * must not be split into multiple blocks. The DMAC can
+			 * support any length transfers in this mode.
+			 */
+			if (!sconfig->device_fc || len <= 4095) {
+				lli_write(desc, ctlhi, bytes2block(dwc, len, mem_width, &dlen));
+			} else {
+				dlen = len;
+				lli_write(desc, ctlhi, 4095);
+			}
 			lli_write(desc, ctllo, ctllo | DWC_CTLL_SRC_WIDTH(mem_width));
 			desc->len = dlen;
 
@@ -814,7 +824,17 @@ slave_sg_fromdev_fill_desc:
 
 			lli_write(desc, sar, reg);
 			lli_write(desc, dar, mem);
-			lli_write(desc, ctlhi, bytes2block(dwc, len, reg_width, &dlen));
+			/*
+			 * If the peripheral is flow controller, the transfer
+			 * must not be split into multiple blocks. The DMAC can
+			 * support any length transfers in this mode.
+			 */
+			if (!sconfig->device_fc || len <= 4095) {
+				lli_write(desc, ctlhi, bytes2block(dwc, len, reg_width, &dlen));
+			} else {
+				dlen = len;
+				lli_write(desc, ctlhi, 4095);
+			}
 			mem_width = __ffs(data_width | mem | dlen);
 			lli_write(desc, ctllo, ctllo | DWC_CTLL_DST_WIDTH(mem_width));
 			desc->len = dlen;
