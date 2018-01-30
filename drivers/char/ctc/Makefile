@@ -1,1 +1,1 @@
-obj-$(CONFIG_RZNCTC) += goal_target_ctc_kernel.o
+obj-$(CONFIG_RZNCTC) += goal_target_ctc.o goal_ctc_util.o

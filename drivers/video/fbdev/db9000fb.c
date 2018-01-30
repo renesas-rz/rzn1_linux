@@ -534,6 +534,7 @@ static void init_backlight(struct db9000fb_info *fbi)
 		return;
 
 	fbi->bl_power = FB_BLANK_UNBLANK;
+	props.brightness = 0xff;
 	props.max_brightness = 0xff;
 	props.type = BACKLIGHT_RAW;
 	bl = devm_backlight_device_register(fbi->dev, "backlight", fbi->dev,
@@ -549,7 +550,6 @@ static void init_backlight(struct db9000fb_info *fbi)
 
 	bl->props.power = FB_BLANK_UNBLANK;
 	bl->props.fb_blank = FB_BLANK_UNBLANK;
-	bl->props.brightness = db9000_bl_get_brightness(bl);
 	backlight_update_status(bl);
 }
 #endif
@@ -632,13 +632,9 @@ static int db9000fb_open(struct fb_info *info, int user)
 	struct db9000fb_info *fbi = to_db9000fb(info);
 
 	/* Enable Controller only if its uses is zero*/
-	if (atomic_inc_return(&fbi->usage) == 1) {
+	if (atomic_inc_return(&fbi->usage) == 1)
 		set_ctrlr_state(fbi, C_ENABLE);
 
-#ifdef CONFIG_BACKLIGHT_DB9000_LCD
-		init_backlight(fbi);
-#endif
-	}
 	return 0;
 }
 
@@ -767,12 +763,14 @@ static u32 get_pixclk(struct db9000fb_info *fbi,
 		ret = DB9000_PCTR_PCD(pcd);
 	}
 
+#ifdef CONFIG_BACKLIGHT_DB9000_LCD
 	if (fbi->pwm_clock) {
 		/* div = pclk / (256 x pwm_clock) */
 		u32 pwmfcd = clk_get_rate(fbi->clk) / 256;
 		pwmfcd /= fbi->pwm_clock;
 		fbi->reg_pwmfr = DB9000_PWMFR_PWM_FCD(pwmfcd - 1);
 	}
+#endif
 
 	return ret;
 }
@@ -882,6 +880,7 @@ static int db9000fb_activate_var(struct fb_var_screeninfo *var,
  */
 static inline void db9000fb_backlight_power(struct db9000fb_info *fbi, int on)
 {
+#ifdef CONFIG_BACKLIGHT_DB9000_LCD
 	/* Has a PWM clock been specified? */
 	if (!fbi->pwm_clock)
 		return;
@@ -896,6 +895,7 @@ static inline void db9000fb_backlight_power(struct db9000fb_info *fbi, int on)
 	}
 
 	lcd_writel(fbi, DB9000_PWMFR, fbi->reg_pwmfr);
+#endif
 }
 
 static inline void db9000fb_lcd_power(struct db9000fb_info *fbi, int on)
@@ -1316,6 +1316,7 @@ static void *db9000fb_init_fbinfo(struct device *dev,
 	return fbi;
 }
 
+#if defined(CONFIG_BACKLIGHT_DB9000_LCD)
 static void get_backlight_pwm_clock(struct device_node *np,
 	struct db9000fb_info *fbi)
 {
@@ -1326,6 +1327,7 @@ static void get_backlight_pwm_clock(struct device_node *np,
 	if (!ret)
 		fbi->pwm_clock = pwm_clock;
 }
+#endif
 
 #if defined(CONFIG_FB_DB9000_BLINK)
 static int setup_blink_mode(struct device_node *np, struct db9000fb_info *fbi)
@@ -1529,7 +1531,9 @@ static int db9000fb_probe(struct platform_device *pdev)
 	fbi->fb.var.width	= fbi->fb.var.xres;
 	fbi->fb.var.bits_per_pixel = bpp;
 
+#if defined(CONFIG_BACKLIGHT_DB9000_LCD)
 	get_backlight_pwm_clock(np, fbi);
+#endif
 
 #if defined(CONFIG_FB_DB9000_BLINK)
 	ret = setup_blink_mode(np, fbi);
@@ -1572,6 +1576,9 @@ static int db9000fb_probe(struct platform_device *pdev)
 		goto err_clear_plat_data;
 	}
 
+#ifdef CONFIG_BACKLIGHT_DB9000_LCD
+	init_backlight(fbi);
+#endif
 	return 0;
 
 err_clear_plat_data:

@@ -310,12 +310,12 @@
 		ranges;
 		u-boot,dm-pre-reloc;
 
-		memory-controller@RZN1_DDR_BASE {
+		ddrctrl: memory-controller@RZN1_DDR_BASE {
 			compatible = "cadence,ddr-ctrl";
 			reg = <RZN1_DDR_BASE RZN1_DDR_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_DDRSUB IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_ddr_grp>;
-			status = "okay";
+			status = "disabled";
 		};
 		pinctrl: pinctrl@RZN1_PINCTRL_BASE {
 			compatible = "renesas,rzn1-pinctrl";
