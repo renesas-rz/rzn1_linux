@@ -67,6 +67,8 @@ struct dw8250_data {
 
 	unsigned int		skip_autocfg:1;
 	unsigned int		uart_16550_compatible:1;
+	unsigned int		dma_capable:1;
+	u32			cpr_val;
 };
 
 static inline u32 dw8250_readl_ext(struct uart_port *p, int offset)
@@ -443,7 +445,7 @@ static void dw8250_quirks(struct uart_port *p, struct dw8250_data *data)
 	}
 }
 
-static void dw8250_setup_port(struct uart_port *p)
+static void dw8250_setup_port(struct uart_port *p, struct dw8250_data *data)
 {
 	struct uart_8250_port *up = up_to_u8250p(p);
 	u32 reg;
@@ -472,8 +474,9 @@ static void dw8250_setup_port(struct uart_port *p)
 	}
 
 	reg = dw8250_readl_ext(p, DW_UART_CPR);
+	/* If the optional CPR register is not there, use value from DT */
 	if (!reg)
-		return;
+		reg = data->cpr_val;
 
 	/* Select the type based on fifo */
 	if (reg & DW_UART_CPR_FIFO_MODE) {
@@ -488,6 +491,9 @@ static void dw8250_setup_port(struct uart_port *p)
 
 	if (reg & DW_UART_CPR_SIR_MODE)
 		up->capabilities |= UART_CAP_IRDA;
+
+	if (reg & DW_UART_CPR_DMA_EXTRA)
+		data->dma_capable = 1;
 }
 
 static int dw8250_probe(struct platform_device *pdev)
@@ -576,6 +582,11 @@ static int dw8250_probe(struct platform_device *pdev)
 		data->msr_mask_off |= UART_MSR_TERI;
 	}
 
+	/* Optional CPR value in case it was omitted from the IP */
+	err = device_property_read_u32(dev, "cpr-value", &val);
+	if (!err)
+		data->cpr_val = val;
+
 	/* Always ask for fixed clock rate from a property. */
 	device_property_read_u32(dev, "clock-frequency", &p->uartclk);
 
@@ -628,10 +639,10 @@ static int dw8250_probe(struct platform_device *pdev)
 		p->handle_irq = NULL;
 
 	if (!data->skip_autocfg)
-		dw8250_setup_port(p);
+		dw8250_setup_port(p, data);
 
-	/* If we have a valid fifosize, try hooking up DMA */
-	if (p->fifosize) {
+	/* If we have a valid fifosize, and DMA signals, try hooking up DMA */
+	if (p->fifosize && data->dma_capable) {
 		data->dma.rxconf.src_maxburst = p->fifosize / 4;
 		data->dma.txconf.dst_maxburst = p->fifosize / 4;
 		uart.dma = &data->dma;

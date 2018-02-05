@@ -36,6 +36,8 @@ Optional properties:
 - ri-override : Override the RI modem status signal. This signal will always be
   reported as inactive instead of being obtained from the modem status register.
   Define this if your serial port does not use this pin.
+- cpr-value : If the IP does not have the optional Component Parameter
+  Register (CPR), you can specify value using this property.
 
 Example:
 
