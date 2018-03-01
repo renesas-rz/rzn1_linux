@@ -620,6 +620,14 @@ config RN5T618_WATCHDOG
 	  This driver can also be built as a module.  If so, the module
 	  will be called rn5t618_wdt.
 
+config RZN1_WATCHDOG
+	tristate "Renesas RZ/N1 watchdog"
+	depends on ARCH_RZN1
+	default y if ARCH_RZN1
+	select WATCHDOG_CORE
+	help
+	  Support for the Renesas RZ/N1 Watchdog timer.
+
 config SUNXI_WATCHDOG
 	tristate "Allwinner SoCs watchdog support"
 	depends on ARCH_SUNXI || COMPILE_TEST
