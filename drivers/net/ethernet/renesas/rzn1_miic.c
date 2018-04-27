@@ -276,10 +276,10 @@ static int rzn1_miic_setup_ports(struct rzn1_miic *miic, struct device *dev)
 	if (of_property_read_u32(node, "mode_control", &prop)) {
 		dev_warn(dev, "%s missing mode_control property\n",
 			node->full_name);
+	} else {
+		/* RIN: Mode Control */
+		rin_writel_to_prot_bits(miic, MODCTRL, prop, ~0);
 	}
-
-	/* RIN: Mode Control */
-	rin_writel_to_prot_bits(miic, MODCTRL, prop, ~0);
 
 
 	/* Each port node in DT directly corresponds to the PHY MIIs, i.e. the
