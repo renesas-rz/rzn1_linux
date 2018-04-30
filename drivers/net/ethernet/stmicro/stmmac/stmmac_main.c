@@ -3757,7 +3757,7 @@ static int stmmac_open(struct net_device *dev)
 		goto init_error;
 	}
 
-	ret = stmmac_hw_setup(dev, true);
+	ret = stmmac_hw_setup(dev, !priv->plat->ptp_disabled);
 	if (ret < 0) {
 		netdev_err(priv->dev, "%s: Hw setup failed\n", __func__);
 		goto init_error;
