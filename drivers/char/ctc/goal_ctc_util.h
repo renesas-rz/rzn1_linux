@@ -13,8 +13,8 @@
 #ifndef GOAL_CTC_UTENSIL_H
 #define GOAL_CTC_UTENSIL_H
 
-#include <goal_target_ctc.h>
-#include <goal_types.h>
+#include "goal_target_ctc.h"
+#include "goal_types.h"
 
 
 /****************************************************************************/
@@ -80,7 +80,7 @@ typedef GOAL_TARGET_PACKED_PRE struct {
     uint32_t flgMsg_be32;                       /**< message flag */
     uint32_t offset_be32;                       /**< offset to data */
     uint16_t len_be16;                          /**< data length */
-    GOAL_CTC_DATA_ENTRY_T pEntry;            /**< precis entry */
+    GOAL_CTC_DATA_ENTRY_T pEntry;               /**< precis entry */
 } GOAL_TARGET_PACKED GOAL_CTC_PRECIS_MSG_T;
 
 /**< precis of memory data */
@@ -98,7 +98,7 @@ typedef GOAL_TARGET_PACKED_PRE struct GOAL_CTC_PRECIS_T {
 typedef GOAL_TARGET_PACKED_PRE struct {
     char identifier[GOAL_CTC_IDENTIFIER_SIZE];  /**< notify initialized Buffer */
     uint8_t ctcVersion[GOAL_CTC_VERSION_SIZE];  /**< CTC version */
-    uint32_t offsetPrecis_be32;                /**< offset to first precis entry */
+    uint32_t offsetPrecis_be32;                 /**< offset to first precis entry */
 }  GOAL_TARGET_PACKED GOAL_CTC_MEMORY_MAP;
 
 /**< ctc configuration
@@ -114,7 +114,6 @@ typedef struct GOAL_CTC_CONFIG_T {
     uint32_t pureChnCnt;                        /**< number of pure channels */
     uint32_t pageCnt;                           /**< number of pages */
     uint32_t pageSize;                          /**< size of pages */
-    uint8_t chnCnt;                             /**< number of stack channels */
     uint8_t prioCnt;                            /**< number of priorities */
     unsigned int fragmSize;                     /**< number of acknowledges */
 } GOAL_CTC_CONFIG_T;
@@ -206,6 +205,7 @@ void goal_ctcUtilFifoWriteAdd(
 
 void goal_ctcUtilFifoReadInc(
     struct GOAL_CTC_PRECIS_T *pPrecis,          /**< channel precis */
+    uint32_t idxRdFifoNew,                      /**< new read index */
     GOAL_CTC_CHN_PURE_STATUS_T cyclicState      /**< cyclic channel status */
 );
 

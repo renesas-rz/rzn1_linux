@@ -474,17 +474,31 @@ void goal_ctcUtilFifoWriteAdd(
  */
 void goal_ctcUtilFifoReadInc(
     struct GOAL_CTC_PRECIS_T *pPrecis,          /**< channel precis */
+    uint32_t idxRdFifoNew,                      /**< new read index */
     GOAL_CTC_CHN_PURE_STATUS_T cyclicState      /**< cyclic channel status */
 )
 {
     uint32_t idxRdFifo;                         /* fifo read index */
+    uint32_t idxWrFifo;                         /* fifo write index */
+    uint32_t numUsed;                           /* used indexes */
 
     if (GOAL_CTC_CHN_PURE_STATUS_CYCLIC != cyclicState) {
         /* get the fifo read index */
         idxRdFifo = GOAL_be32toh(pPrecis->idxRd_be32);
+        idxWrFifo = GOAL_be32toh(pPrecis->idxWr_be32);
 
-        idxRdFifo = ((idxRdFifo + 1) % CTC_FIFO_COUNT);
-        pPrecis->idxRd_be32 = GOAL_htobe32(idxRdFifo);
+        if (CTC_FIFO_COUNT <= idxRdFifoNew) {
+            goal_logErr("New read index is out of range.");
+            return;
+        }
+
+        /* validate the space on cyclic buffer */
+        numUsed = CTC_FIFO_COUNT - (((CTC_FIFO_COUNT + idxRdFifo - idxWrFifo - 1)) % CTC_FIFO_COUNT);
+        if (numUsed < ((CTC_FIFO_COUNT + idxRdFifoNew - idxRdFifo) % CTC_FIFO_COUNT)) {
+            goal_logErr("Invalid read index received");
+            return;
+        }
+        pPrecis->idxRd_be32 = GOAL_htobe32(idxRdFifoNew);
     }
 }
 
@@ -676,8 +690,8 @@ GOAL_STATUS_T goal_ctcUtilPureStatus(
                     /* set the ready flag to enable the communication on pure channels */
                     res = goal_ctcUtilVersionValid(pUtil, pUtil->pWrite->ctcVersion, GOAL_CTC_V_MAJOR_IDX);
                     if (GOAL_RES_ERR(res)) {
-                        goal_logWarn("ctc version: %u found invalid foreign version %u for ctc MI ID %u", pUtil->pWrite->ctcVersion[GOAL_CTC_V_MAJOR_IDX],
-                            pUtil->pRead->ctcVersion[GOAL_CTC_V_MAJOR_IDX], usageId);
+                        goal_logWarn("ctc version: %u", pUtil->pWrite->ctcVersion[GOAL_CTC_V_MAJOR_IDX]);
+                        goal_logWarn("    : found invalid foreign version %u for ctc MI ID %u", pUtil->pRead->ctcVersion[GOAL_CTC_V_MAJOR_IDX], usageId);
                     }
                     else {
                         pUtil->state = GOAL_CTC_STATUS_OK;

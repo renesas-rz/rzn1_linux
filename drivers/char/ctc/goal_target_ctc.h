@@ -17,8 +17,6 @@
 #ifndef GOAL_TARGET_CTC_H
 #define GOAL_TARGET_CTC_H
 
-#include <linux/types.h>
-#include <linux/string.h>
 #include <linux/module.h>
 #include <asm/byteorder.h>
 
@@ -29,7 +27,7 @@
 /**< device defines */
 #define CTC_DEVICE_NAME "ctc"                   /**< Name of sysfs device */
 #define CTC_DEVICE_FILE "c2c_chan%u"            /**< Device file name in /dev */
-#define CTC_DEVICE_FILE_SIZE 10                 /**< size of device file name in /dev */
+#define CTC_DEVICE_FILE_SIZE 19                 /**< size of device file name in /dev */
 
 /**< shared memory configuration */
 #define GOAL_TGT_CTC_CHN_MAX 5                  /**< Number of channels */

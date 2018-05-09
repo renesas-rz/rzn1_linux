@@ -28,11 +28,15 @@
 #define GOAL_CMP_EQUAL              0
 
 /* timer specific defines */
-#define GOAL_TIMER_INVALID      0
+#define GOAL_TIMER_INVALID      NULL
 #define GOAL_TIMER_FUNC(f, p)   void f(void *p)
 
 /* generic lock handle defines */
 #define GOAL_LOCK_INFINITE                 0
+
+/**< string terminator length */
+#define GOAL_STR_TERM_LEN 1
+
 
 /* endianness convert defines
  *
@@ -75,70 +79,70 @@
 #if GOAL_CONFIG_TARGET_LITTLE_ENDIAN == 1
 
 #  define GOAL_htole16(x)             (x)
-#  define GOAL_htole16_p(p, x)        GOAL_set_le16_ua(p, x)
+#  define GOAL_htole16_p(p, x)        GOAL_set_le16_ua((uint8_t *) (p), x)
 #  define GOAL_htole32(x)             (x)
-#  define GOAL_htole32_p(p, x)        GOAL_set_le32_ua(p, x)
+#  define GOAL_htole32_p(p, x)        GOAL_set_le32_ua((uint8_t *) (p), x)
 #  define GOAL_htole64(x)             (x)
-#  define GOAL_htole64_p(p, x)        GOAL_set_le64_ua(p, x)
+#  define GOAL_htole64_p(p, x)        GOAL_set_le64_ua((uint8_t *) (p), x)
 
 #  define GOAL_htobe16(x)             GOAL_bswap16(x)
-#  define GOAL_htobe16_p(p, x)        GOAL_set_be16_ua(p, x)
+#  define GOAL_htobe16_p(p, x)        GOAL_set_be16_ua((uint8_t *) (p), x)
 #  define GOAL_htobe32(x)             GOAL_bswap32(x)
-#  define GOAL_htobe24_p(p, x)        GOAL_set_be24_ua(p, x)
-#  define GOAL_htobe32_p(p, x)        GOAL_set_be32_ua(p, x)
-#  define GOAL_htobe48_p(p, x)        GOAL_set_be48_ua(p, x)
+#  define GOAL_htobe24_p(p, x)        GOAL_set_be24_ua((uint8_t *) (p), x)
+#  define GOAL_htobe32_p(p, x)        GOAL_set_be32_ua((uint8_t *) (p), x)
+#  define GOAL_htobe48_p(p, x)        GOAL_set_be48_ua((uint8_t *) (p), x)
 #  define GOAL_htobe64(x)             GOAL_bswap64(x)
-#  define GOAL_htobe64_p(p, x)        GOAL_set_be64_ua(p, x)
+#  define GOAL_htobe64_p(p, x)        GOAL_set_be64_ua((uint8_t *) (p), x)
 
 #  define GOAL_le16toh(x)             (x)
-#  define GOAL_le16toh_p(p)           GOAL_get_le16_ua(p)
+#  define GOAL_le16toh_p(p)           GOAL_get_le16_ua((const uint8_t *) (p))
 #  define GOAL_le32toh(x)             (x)
-#  define GOAL_le32toh_p(p)           GOAL_get_le32_ua(p)
+#  define GOAL_le32toh_p(p)           GOAL_get_le32_ua((const uint8_t *) (p))
 #  define GOAL_le64toh(x)             (x)
-#  define GOAL_le64toh_p(p)           GOAL_get_le64_ua(p)
+#  define GOAL_le64toh_p(p)           GOAL_get_le64_ua((const uint8_t *) (p))
 
 #  define GOAL_be16toh(x)             GOAL_bswap16(x)
-#  define GOAL_be16toh_p(p)           GOAL_get_be16_ua(p)
-#  define GOAL_be24toh_p(p)           GOAL_get_be24_ua(p)
+#  define GOAL_be16toh_p(p)           GOAL_get_be16_ua((const uint8_t *) (p))
+#  define GOAL_be24toh_p(p)           GOAL_get_be24_ua((const uint8_t *) (p))
 #  define GOAL_be32toh(x)             GOAL_bswap32(x)
-#  define GOAL_be32toh_p(p)           GOAL_get_be32_ua(p)
-#  define GOAL_be48toh_p(p)           GOAL_get_be48_ua(p)
+#  define GOAL_be32toh_p(p)           GOAL_get_be32_ua((const uint8_t *) (p))
+#  define GOAL_be48toh_p(p)           GOAL_get_be48_ua((const uint8_t *) (p))
 #  define GOAL_be64toh(x)             GOAL_bswap64(x)
-#  define GOAL_be64toh_p(p)           GOAL_get_be64_ua(p)
+#  define GOAL_be64toh_p(p)           GOAL_get_be64_ua((const uint8_t *) (p))
 
 #elif GOAL_CONFIG_TARGET_BIG_ENDIAN == 1
 
 #  define GOAL_htole16(x)             GOAL_bswap16(x)
-#  define GOAL_htole16_p(p, x)        GOAL_set_le16_ua(p, x)
+#  define GOAL_htole16_p(p, x)        GOAL_set_le16_ua((uint8_t *) (p), x)
 #  define GOAL_htole32(x)             GOAL_bswap32(x)
-#  define GOAL_htole32_p(p, x)        GOAL_set_le32_ua(p, x)
+#  define GOAL_htole32_p(p, x)        GOAL_set_le32_ua((uint8_t *) (p), x)
 #  define GOAL_htole64(x)             GOAL_bswap64(x)
-#  define GOAL_htole64_p(p, x)        GOAL_set_le64_ua(p, x)
+#  define GOAL_htole64_p(p, x)        GOAL_set_le64_ua((uint8_t *) (p), x)
 
 #  define GOAL_htobe16(x)             (x)
-#  define GOAL_htobe16_p(p, x)        GOAL_set_be16_ua(p, x)
+#  define GOAL_htobe16_p(p, x)        GOAL_set_be16_ua((uint8_t *) (p), x)
 #  define GOAL_htobe32(x)             (x)
-#  define GOAL_htobe24_p(p, x)        GOAL_set_be24_ua(p, x)
-#  define GOAL_htobe32_p(p, x)        GOAL_set_be32_ua(p, x)
-#  define GOAL_htobe48_p(p, x)        GOAL_set_be48_ua(p, x)
+#  define GOAL_htobe24_p(p, x)        GOAL_set_be24_ua((uint8_t *) (p), x)
+#  define GOAL_htobe32_p(p, x)        GOAL_set_be32_ua((uint8_t *) (p), x)
+#  define GOAL_htobe48_p(p, x)        GOAL_set_be48_ua((uint8_t *) (p), x)
 #  define GOAL_htobe64(x)             (x)
-#  define GOAL_htobe64_p(p, x)        GOAL_set_be64_ua(p, x)
+#  define GOAL_htobe64_p(p, x)        GOAL_set_be64_ua((uint8_t *) (p), x)
 
 #  define GOAL_le16toh(x)             GOAL_bswap16(x)
-#  define GOAL_le16toh_p(p)           GOAL_get_le16_ua(p)
+#  define GOAL_le16toh_p(p)           GOAL_get_le16_ua((const uint8_t *) (p))
 #  define GOAL_le32toh(x)             GOAL_bswap32(x)
-#  define GOAL_le32toh_p(p)           GOAL_get_le32_ua(p)
+#  define GOAL_le32toh_p(p)           GOAL_get_le32_ua((const uint8_t *) (p))
 #  define GOAL_le64toh(x)             GOAL_bswap64(x)
-#  define GOAL_le64toh_p(p)           GOAL_get_le64_ua(p)
+#  define GOAL_le64toh_p(p)           GOAL_get_le64_ua((const uint8_t *) (p))
 
 #  define GOAL_be16toh(x)             (x)
-#  define GOAL_be16toh_p(p)           GOAL_get_be16_ua(p)
-#  define GOAL_be24toh_p(p)           GOAL_get_be24_ua(p)
+#  define GOAL_be16toh_p(p)           GOAL_get_be16_ua((const uint8_t *) (p))
+#  define GOAL_be24toh_p(p)           GOAL_get_be24_ua((const uint8_t *) (p))
 #  define GOAL_be32toh(x)             (x)
-#  define GOAL_be32toh_p(p)           GOAL_get_be32_ua(p)
-#  define GOAL_be48toh_p(p)           GOAL_get_be48_ua(p)
+#  define GOAL_be32toh_p(p)           GOAL_get_be32_ua((const uint8_t *) (p))
+#  define GOAL_be48toh_p(p)           GOAL_get_be48_ua((const uint8_t *) (p))
 #  define GOAL_be64toh(x)             (x)
-#  define GOAL_be64toh_p(p)           GOAL_get_be64_ua(p)
+#  define GOAL_be64toh_p(p)           GOAL_get_be64_ua((const uint8_t *) (p))
 
 #else
 #  error "Target endianness not set: GOAL_CONFIG_TARGET_LITTLE_ENDIAN or GOAL_CONFIG_TARGET_BIG_ENDIAN"
@@ -228,36 +232,10 @@
 /* get number of elements of an array */
 #define ARRAY_ELEMENTS(x) (sizeof(x) / sizeof(x[0]))
 
-/* Logging IDs reserved by GOAL */
-#define GOAL_LOG_ID_ALL                         UINT32_MAX /**< log all modules */
-#define GOAL_LOG_ID_MEM                         (1 << 30) /**< log memory module */
-#define GOAL_LOG_ID_ETH                         (1 << 29) /**< log Ethernet module */
-#define GOAL_LOG_ID_LOCK                        (1 << 28) /**< log locking module */
-#define GOAL_LOG_ID_LOG                         (1 << 27) /**< log logging module */
-#define GOAL_LOG_ID_MAIN                        (1 << 26) /**< log main module */
-#define GOAL_LOG_ID_REG                         (1 << 25) /**< log register module */
-#define GOAL_LOG_ID_TIMER                       (1 << 24) /**< log timer module */
-#define GOAL_LOG_ID_TARGET                      (1 << 23) /**< log target module */
-#define GOAL_LOG_ID_APPLICATION                 (1 << 22) /**< log application */
-#define GOAL_LOG_ID_NET                         (1 << 21) /**< log net module */
-#define GOAL_LOG_ID_LIST                        (1 << 20) /**< log list module */
-#define GOAL_LOG_ID_CM                          (1 << 19) /**< config manager */
-#define GOAL_LOG_ID_CTC                         (1 << 18) /**< log Core2Core module */
-#define GOAL_LOG_ID_TASK                        (1 << 17) /**< log task module */
-#define GOAL_LOG_ID_DLR                         (1 << 16) /**< log DLR module */
-#define GOAL_LOG_ID_EIP                         (1 << 15) /**< log EtherNet/IP module */
-#define GOAL_LOG_ID_RPC                         (1 << 14) /**< log Remote Procedure Call module */
-#define GOAL_LOG_ID_PNIO                        (1 << 13) /**< log Profinet/IO module */
-#define GOAL_LOG_ID_PACP                        (1 << 12) /**< log PACP module */
-#define GOAL_LOG_ID_RADIUS                      (1 << 11) /**< log RADIUS module */
-#define GOAL_LOG_ID_DHCP                        (1 << 10) /**< log DHCP module */
-#define GOAL_LOG_ID_CAN                         (1 << 9) /**< CAN module */
-#define GOAL_LOG_ID_EPL                         (1 << 8) /**< Ethernet POWERLINK */
-#define GOAL_LOG_ID_BM                          (1 << 7) /**< bitmap module */
-#define GOAL_LOG_ID_HTTPD                       (1 << 6) /**< log HTTPD module */
-#define GOAL_LOG_ID_MEDIA                       (1 << 5) /**< GOAL Media log id */
-#define GOAL_LOG_ID_TLS                         (1 << 4) /**< log TLS module */
-#define GOAL_LOG_ID_LAST                        GOAL_LOG_ID_TLS /**< last log module index */
+/* offsetof implementation */
+#ifndef offsetof
+#  define offsetof(_struct, _elem) ((size_t) &(((_struct *) 0)->_elem))
+#endif
 
 
 /****************************************************************************/
@@ -282,6 +260,8 @@ typedef uint32_t GOAL_STATUS_T;
 #define GOAL_OK_SUPPORTED               3       /**< supported */
 #define GOAL_OK_DELAYED                 4       /**< delayed */
 #define GOAL_OK_ALREADY_INITIALIZED     5       /**< already initialized */
+#define GOAL_OK_EXISTS                  6       /**< exists already */
+#define GOAL_OK_PARTIAL                 7       /**< partial transfer */
 
 #define GOAL_ERROR                      (1u << 31) /**< general error */
 #define GOAL_ERR_NULL_POINTER           (GOAL_ERROR | 103) /**< null pointer error */
@@ -367,9 +347,15 @@ typedef uint32_t GOAL_STATUS_T;
 #define GOAL_ERR_UNDERFLOW              (GOAL_ERROR | 183) /**< underflow error */
 #define GOAL_ERR_NET_DEACTIVATE         (GOAL_ERROR | 184) /**< failed to deactivate socket */
 #define GOAL_ERR_NET_SET_SEND           (GOAL_ERROR | 185) /**< failed to set send function for channel */
+#define GOAL_ERR_EXISTS                 (GOAL_ERROR | 186) /**< ressource already exists */
+#define GOAL_ERR_NOT_EMPTY              (GOAL_ERROR | 187) /**< ressource not empty */
+#define GOAL_ERR_TASK_PRIORITY_GET      (GOAL_ERROR | 188) /**< task: priorty get failed */
 
 #define GOAL_RES_OK(x) (!(x & GOAL_ERROR))      /**< positive result verification */
 #define GOAL_RES_ERR(x) (x & GOAL_ERROR)        /**< negative result verification */
+
+/**< GOAL result with integrated id */
+#define GOAL_RES_ID(_id, _status) ((_id << 15) | _status)
 
 /**< GOAL status areas */
 #define GOAL_RES_MASK                   0x0000ffff /**< GOAL result mask */
@@ -443,6 +429,10 @@ typedef enum {
 typedef uint32_t GOAL_USAGE_T;
 
 
+/**< id type */
+typedef uint16_t GOAL_ID_T;
+
+
 /**< usage types (see goal/goal_id.h) */
 #define GOAL_USAGE_UNKNOWN      GOAL_ID_ZERO
 #define GOAL_USAGE_MEM_POOL     GOAL_ID_MEM
@@ -462,6 +452,7 @@ typedef uint32_t GOAL_USAGE_T;
 #define GOAL_USAGE_CAN_TXBUF    GOAL_ID_CAN_TXBUF
 #define GOAL_USAGE_CANOPEN      GOAL_ID_CANOPEN
 #define GOAL_USAGE_PTP          GOAL_ID_PTP
+#define GOAL_USAGE_MI_CTC_SPI   GOAL_ID_MI_CTC_SPI
 
 
 /** lock data */
@@ -846,6 +837,94 @@ static GOAL_TARGET_INLINE void GOAL_set_be48_ua(
     p8[4] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000000000ff00U) >>  8);
     p8[5] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000000000ffU));
 }
+
+
+/****************************************************************************/
+/** Convert a 16-bit value with a given endianness to host-endianness
+ *
+ * @param [in] pVal value pointer
+ * @param [in] endian endianness
+ *
+ * @returns 16-bit value in host-format
+ */
+
+#define GOAL_en16toh_p(pVal, endian)  ((GOAL_ENDIAN_BIG == endian) ?  \
+                                      GOAL_get_be16_ua((const uint8_t *) (pVal)) : \
+                                      GOAL_get_le16_ua((const uint8_t *) (pVal)))
+
+
+/****************************************************************************/
+/** Convert a 32-bit value with a given endianness to host-endianness
+ *
+ * @param [in] pVal value pointer
+ * @param [in] endian endianness
+ *
+ * @returns 32-bit value in host-format
+ */
+#define GOAL_en32toh_p(pVal, endian)  ((GOAL_ENDIAN_BIG == endian) ?  \
+                                      GOAL_get_be32_ua((const uint8_t *) (pVal)) : \
+                                      GOAL_get_le32_ua((const uint8_t *) (pVal)))
+
+
+/****************************************************************************/
+/** Convert a 64-bit value with a given endianness to host-endianness
+ *
+ * @param [in] pVal value pointer
+ * @param [in] endian endianness
+ *
+ * @returns 64-bit value in host-format
+ */
+#define GOAL_en64toh_p(pVal, endian)  ((GOAL_ENDIAN_BIG == endian) ?  \
+                                      GOAL_get_be64_ua((const uint8_t *) (pVal)) : \
+                                      GOAL_get_le64_ua((const uint8_t *) (pVal)))
+
+
+/****************************************************************************/
+/** Convert a 16-bit value from host-endianness to a given endianness
+ *
+ * @param [out] pVal value pointer
+ * @param [in] valHost host-value
+ * @param [in] endian endianness
+ */
+#define GOAL_htoen16_p(pVal, valHost, endian)                         \
+                            do {                                      \
+                                if (GOAL_ENDIAN_BIG == endian)        \
+                                    GOAL_set_be16_ua((uint8_t *) (pVal), valHost); \
+                                else                                  \
+                                    GOAL_set_le16_ua((uint8_t *) (pVal), valHost); \
+                            } while (0)
+
+
+/****************************************************************************/
+/** Convert a 32-bit value from host-endianness to a given endianness
+ *
+ * @param [out] pVal value pointer
+ * @param [in] valHost host-value
+ * @param [in] endian endianness
+ */
+#define GOAL_htoen32_p(pVal, valHost, endian)                         \
+                            do {                                      \
+                                if (GOAL_ENDIAN_BIG == endian)        \
+                                    GOAL_set_be32_ua((uint8_t *) (pVal), valHost); \
+                                else                                  \
+                                    GOAL_set_le32_ua((uint8_t *) (pVal), valHost); \
+                            } while (0)
+
+
+/****************************************************************************/
+/** Convert a 64-bit value from host-endianness to a given endianness
+ *
+ * @param [out] pVal value pointer
+ * @param [in] valHost host-value
+ * @param [in] endian endianness
+ */
+#define GOAL_htoen64_p(pVal, valHost, endian)                         \
+                            do {                                      \
+                                if (GOAL_ENDIAN_BIG == endian)        \
+                                    GOAL_set_be64_ua((uint8_t *) (pVal), valHost); \
+                                else                                  \
+                                    GOAL_set_le64_ua((uint8_t *) (pVal), valHost); \
+                            } while (0)
 
 
 #endif /* GOAL_TYPES_H */

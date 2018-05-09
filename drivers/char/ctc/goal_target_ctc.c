@@ -16,31 +16,16 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/delay.h>
-#include <linux/fs.h>
-#include <linux/init.h>
-#include <linux/interrupt.h>
-#include <linux/kernel.h>
 #include <linux/kfifo.h>
 #include <linux/kthread.h>
-#include <linux/mm.h>
-#include <linux/module.h>
-#include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/platform_device.h>
 #include <linux/pl320-ipc.h>
-#include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/time.h>
-#include <linux/types.h>
-#include <linux/uio.h>
-#include <linux/workqueue.h>
+#include <linux/uaccess.h>
 
-#include <asm/uaccess.h>
-#include <asm/io.h>
-
-#include <goal_target_ctc.h>
-#include <goal_ctc_util.h>
-#include <goal_ctc_kernel.h>
+#include "goal_target_ctc.h"
+#include "goal_ctc_util.h"
+#include "goal_ctc_kernel.h"
 
 
 /****************************************************************************/
@@ -48,7 +33,7 @@
 /****************************************************************************/
 /**< version */
 #define CTC_KERNEL_VERSION_MAJOR 4              /**< major version of the kernel */
-#define CTC_KERNEL_VERSION_MINOR 0              /**< minor version of the kernel */
+#define CTC_KERNEL_VERSION_MINOR 1              /**< minor version of the kernel */
 
 #define CTC_WORK_QUEUE_NAME "CTC_FIFO_WQUEUE"   /**< Work queue */
 #define CTC_KERNEL_VALIDATION_TIMEOUT_MS 3000   /**< timeout till validation error */
@@ -590,7 +575,7 @@ static int ctc_notifier(
         goal_logErr("Unable to get read precis of pure channel %u.\n", channelId);
         return 0;
     }
-    goal_ctcUtilFifoReadInc(pPrecis, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
+    goal_ctcUtilFifoReadInc(pPrecis, (GOAL_be32toh(pPrecis->idxRd_be32) + 1) % CTC_FIFO_COUNT, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
 
     return 0;
 }
@@ -856,7 +841,7 @@ static ssize_t ctc_read(
                     goal_logErr("Unable to get read precis of pure channel %u.\n", pureChanId);
                     return -EFAULT;
                 }
-                goal_ctcUtilFifoReadInc(pPrecis, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
+                goal_ctcUtilFifoReadInc(pPrecis, (GOAL_be32toh(pPrecis->idxRd_be32) + 1) % CTC_FIFO_COUNT, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
             }
 
             /* Free the buffer. */
@@ -960,7 +945,7 @@ static ssize_t ctc_write(
     if (GOAL_RES_ERR(res)) {
         goal_logErr("Unable to send a mailbox message request [Err: 0x%x].\n", res);
         /* unable to send the message, avoid a buffer gab by increasing the read index */
-        goal_ctcUtilFifoReadInc(pPrecis, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
+        goal_ctcUtilFifoReadInc(pPrecis, (GOAL_be32toh(pPrecis->idxRd_be32) + 1) % CTC_FIFO_COUNT, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
         mutex_unlock(&(pCtcDevice->ctcDevices[pureChanId].mtxCtcDev));
         return -EACCES;
     }
