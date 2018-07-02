@@ -129,7 +129,7 @@ static void dwapb_toggle_trigger(struct dwapb_gpio *gpio, unsigned int offs)
 
 static u32 dwapb_do_irq(struct dwapb_gpio *gpio)
 {
-	u32 irq_status = readl_relaxed(gpio->regs + GPIO_INTSTATUS);
+	u32 irq_status = dwapb_read(gpio, GPIO_INTSTATUS);
 	u32 ret = irq_status;
 
 	while (irq_status) {
@@ -262,7 +262,8 @@ static int dwapb_irq_set_type(struct irq_data *d, u32 type)
 	irq_setup_alt_chip(d, type);
 
 	dwapb_write(gpio, GPIO_INTTYPE_LEVEL, level);
-	dwapb_write(gpio, GPIO_INT_POLARITY, polarity);
+	if (type != IRQ_TYPE_EDGE_BOTH)
+		dwapb_write(gpio, GPIO_INT_POLARITY, polarity);
 	spin_unlock_irqrestore(&gc->bgpio_lock, flags);
 
 	return 0;

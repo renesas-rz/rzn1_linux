@@ -453,6 +453,14 @@ config RN5T618_WATCHDOG
 	  will be called rn5t618_wdt.
 
 config RZN1_WATCHDOG
+	tristate "Renesas RZ/N1 watchdog"
+	depends on ARCH_RZN1
+	default y if ARCH_RZN1
+	select WATCHDOG_CORE
+	help
+	  Support for the Renesas RZ/N1 Watchdog timer.
+
+config RZN1_WATCHDOG_SAFE
 	tristate "Renesas RZ/N1 watchdogsafe"
 	depends on ARCH_RZN1
 	default y if ARCH_RZN1

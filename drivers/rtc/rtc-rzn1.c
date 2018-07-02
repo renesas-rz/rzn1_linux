@@ -24,7 +24,6 @@
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/io.h>
-#include <linux/sysctrl-rzn1.h>
 
 #define	DRIVER_NAME			"rzn1-rtc"
 
@@ -264,21 +263,10 @@ static int rzn1_rtc_probe(struct platform_device *pdev)
 	struct resource		*res;
 	struct rtc_device	*rtc;
 	struct clk 		*clk;
-	u32			val;
 
 	clk = devm_clk_get(&pdev->dev, "axi");
 	if (IS_ERR(clk) || clk_prepare_enable(clk))
 		dev_info(&pdev->dev, "no clock source\n");
-
-	/* Turn on RTC clock */
-	/* It has special (i.e. different to everything else) SYSCTRL bits */
-	val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_PWRCTRL_RTC);
-	val |= (1 << RZN1_SYSCTRL_REG_PWRCTRL_RTC_CLKEN_RTC);
-	rzn1_sysctrl_writel(val, RZN1_SYSCTRL_REG_PWRCTRL_RTC);
-	val |= (1 << RZN1_SYSCTRL_REG_PWRCTRL_RTC_RSTN_FW_RTC);
-	rzn1_sysctrl_writel(val, RZN1_SYSCTRL_REG_PWRCTRL_RTC);
-	val &= ~(1 << RZN1_SYSCTRL_REG_PWRCTRL_RTC_IDLE_REQ);
-	rzn1_sysctrl_writel(val, RZN1_SYSCTRL_REG_PWRCTRL_RTC);
 
 	rzn1_rtc_timer = platform_get_irq(pdev, 0);
 	if (rzn1_rtc_timer <= 0) {

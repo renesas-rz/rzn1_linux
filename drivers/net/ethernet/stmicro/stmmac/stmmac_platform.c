@@ -324,7 +324,11 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
 		pr_warn("force_sf_dma_mode is ignored if force_thresh_dma_mode is set.");
 	}
 
+	plat->ptp_disabled = of_property_read_bool(np, "snps,ptp-disabled");
+
 	of_property_read_u32(np, "snps,ps-speed", &plat->mac_port_sel_speed);
+
+	plat->do_not_reset = of_property_read_bool(np, "snps,do_not_reset");
 
 	plat->axi = stmmac_axi_setup(pdev);
 

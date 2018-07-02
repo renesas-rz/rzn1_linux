@@ -37,7 +37,7 @@ static void __dma_tx_complete(void *param)
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(&p->port);
 
-	ret = serial8250_tx_dma(p);
+	ret = dma->tx_dma(p);
 	if (ret) {
 		p->ier |= UART_IER_THRI;
 		serial_port_out(&p->port, UART_IER, p->ier);

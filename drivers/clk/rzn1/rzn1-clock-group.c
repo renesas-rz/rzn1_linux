@@ -116,7 +116,7 @@ static void __init rzn1_clock_group_init(struct device_node *node)
 	group = kzalloc(sizeof(struct rzn1_group) +
 			(sizeof(group->parent[0]) * nparents),
 			GFP_KERNEL);
-	if (IS_ERR(group)) {
+	if (!group) {
 		pr_err("%s failed to allocate %s(%d)\n", __func__,
 			node->name, nparents);
 		return;

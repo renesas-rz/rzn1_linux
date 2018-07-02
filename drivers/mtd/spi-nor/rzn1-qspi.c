@@ -71,6 +71,7 @@ struct rzn1_qspi {
 	u32 slave_count;
 	struct rzn1_qspi_slave slave[CONFIG_RZN1_QSPI_NR_CS];
 	void __iomem *ahb_base; /* Used when read from AHB bus */
+	phys_addr_t ahb_phys;
 	struct device *dev;
 	int use_cs_mux;		/* renesas,rzn1-cs_mux */
 	struct clk *clk, *clk_fw;
@@ -368,24 +369,22 @@ static int rzn1_qspi_nor_setup(struct rzn1_qspi *q)
 	/* Configure the remap address register, no remap */
 	qspi_writel(0, &q->reg->remapaddr);
 
-	/* Disable all interrupts */
-	qspi_writel(0, &q->reg->irqmask);
+	/* Enable Protected Area Write Attempt interrupts */
+	qspi_writel(CQSPI_REG_IRQMASK_WP, &q->reg->irqmask);
 
 	/* this is the defaul SPI mode for most SPI NOR flashes */
 	reg |= (1 << CQSPI_REG_CONFIG_CLK_POL_LSB);
 	reg |= (1 << CQSPI_REG_CONFIG_CLK_PHA_LSB);
 	/* This is the only setup we need; enable memory mapped range */
 	reg |= CQSPI_REG_CONFIG_DIRECT_MASK;
-	/* Enable AHB write protection, to prevent random write access
+	/* Enable AHB write protection to prevent random write access
 	 * that could nuke the flash memory. Instead you have to explicitly
-	 * go thru the write command.
-	 * We set the protection range to the maximum, so the whole
-	 * address range should be protected, regardless of what size
-	 * is actually used.
+	 * use the write command.
 	 */
 	qspi_writel(0, &q->reg->lowwrprot);
-	qspi_writel(~0, &q->reg->uppwrprot);
-	qspi_writel(CQSPI_REG_WRPROT_ENABLE_MASK, &q->reg->wrprot);
+	qspi_writel(0, &q->reg->uppwrprot);
+	qspi_writel(CQSPI_REG_WRPROT_ENABLE_MASK | CQSPI_REG_WRPROT_INVERT,
+			&q->reg->wrprot);
 
 	qspi_writel(reg, &q->reg->cfg);
 
@@ -463,12 +462,16 @@ static ssize_t rzn1_qspi_write(struct spi_nor *nor, loff_t to,
 {
 	struct rzn1_qspi_slave *s = nor->priv;
 	struct rzn1_qspi *q = s->host;
+	u32 low = ((u32)q->ahb_phys + (u32)to) / nor->mtd.erasesize;
+	u32 upp = low + len / nor->mtd.erasesize;
 
-	qspi_writel(0, &q->reg->wrprot);
+	qspi_writel(low, &q->reg->lowwrprot);
+	qspi_writel(upp, &q->reg->uppwrprot);
+
 	memcpy(q->ahb_base + to, buf, len);
 
-	qspi_writel(CQSPI_REG_WRPROT_ENABLE_MASK,
-	       &q->reg->wrprot);
+	qspi_writel(0, &q->reg->uppwrprot);
+	qspi_writel(0, &q->reg->lowwrprot);
 
 	return len;
 }
@@ -574,6 +577,8 @@ static irqreturn_t rzn1_qspi_irq_handler(int irq, void *dev_id)
 {
 	struct rzn1_qspi *q = dev_id;
 	u32 reg = readl(&q->reg->irqstat);
+
+	dev_warn(q->dev, "Detected invalid attempt to write to QSPI!\n");
 
 	reg = 0;
 	qspi_writel(reg, &q->reg->irqstat);
@@ -712,8 +717,10 @@ static int rzn1_qspi_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					"qspi-mapping");
 	/* Make sure the IO mapping range is cacheable */
-	if (res)
+	if (res) {
 		res->flags |= IORESOURCE_CACHEABLE;
+		q->ahb_phys = (phys_addr_t)res->start;
+	}
 	q->ahb_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(q->ahb_base)) {
 		ret = PTR_ERR(q->ahb_base);

@@ -27,7 +27,6 @@
 #include <linux/backlight.h>
 #include <linux/clk.h>
 #include <linux/completion.h>
-#include <linux/cpufreq.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
@@ -55,8 +54,6 @@
 
 #define DRIVER_NAME "clcd-db9000"
 #define DEF_BRIGHTNESS 0x80
-
-const char *mode_option;
 
 /* Bits which should not be set in machine configuration structures */
 #define CR1_INVALID_CONFIG_MASK	(~(DB9000_CR1_ENB | DB9000_CR1_LPE |\
@@ -94,12 +91,13 @@ enum {
 
 
 struct db9000fb_info {
-	struct fb_info		fb;
+	struct fb_info		*info;
 	struct device		*dev;
 	struct platform_device	*pdev;
 	struct clk		*clk;
 	struct clk		*bus_clk;
 	struct clk		*pixel_clk;
+	struct notifier_block	clk_rate_nb;
 
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pins_default;
@@ -143,14 +141,6 @@ struct db9000fb_info {
 	/* Completion - for PAN display alignment with VSYNC/BAU event */
 	struct completion vsync_notifier;
 
-	/* ignore_cpufreq_notification is > 0 if cpu and clcd uses diff pll */
-	bool ignore_cpufreq_notification;
-
-#ifdef CONFIG_CPU_FREQ
-	struct notifier_block	freq_transition;
-	struct notifier_block	freq_policy;
-#endif
-
 #ifdef CONFIG_BACKLIGHT_DB9000_LCD
 	struct backlight_device *backlight;
 	u32			pwm_clock;
@@ -160,7 +150,6 @@ struct db9000fb_info {
 	bool			use_blinking;
 };
 
-#define to_db9000fb(info)	container_of(info, struct db9000fb_info, fb)
 #define TO_INF(ptr, member)	container_of(ptr, struct db9000fb_info, member)
 
 static inline void db9000fb_backlight_power(struct db9000fb_info *fbi, int on);
@@ -222,14 +211,14 @@ static int
 db9000fb_setpalettereg(u_int regno, u_int red, u_int green, u_int blue, u_int
 		trans, struct fb_info *info)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
+	struct db9000fb_info *fbi = info->par;
 	u_int val;
 	u16 *pal = (u16 *)&fbi->palette[0];
 
 	if (regno >= fbi->palette_size)
 		return 1;
 
-	if (fbi->fb.var.grayscale) {
+	if (info->var.grayscale) {
 		pal[regno] = ((blue >> 8) & 0x00ff);
 		return 0;
 	}
@@ -261,7 +250,6 @@ static int
 db9000fb_setcolreg(u_int regno, u_int red, u_int green, u_int blue, u_int trans,
 		struct fb_info *info)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
 	unsigned int val;
 	int ret = 1;
 
@@ -269,22 +257,22 @@ db9000fb_setcolreg(u_int regno, u_int red, u_int green, u_int blue, u_int trans,
 	 * If greyscale is true, then we convert the RGB value to greyscale no
 	 * matter what visual we are using.
 	 */
-	if (fbi->fb.var.grayscale)
+	if (info->var.grayscale)
 		red = green = blue = (19595 * red + 38470 * green +
 				7471 * blue) >> 16;
 
-	switch (fbi->fb.fix.visual) {
+	switch (info->fix.visual) {
 	case FB_VISUAL_TRUECOLOR:
 		/*
 		 * 16-bit True Colour. We encode the RGB value according to the
 		 * RGB bitfield information.
 		 */
 		if (regno < 16) {
-			u32 *pal = fbi->fb.pseudo_palette;
+			u32 *pal = info->pseudo_palette;
 
-			val = convert_bitfield(red, &fbi->fb.var.red);
-			val |= convert_bitfield(green, &fbi->fb.var.green);
-			val |= convert_bitfield(blue, &fbi->fb.var.blue);
+			val = convert_bitfield(red, &info->var.red);
+			val |= convert_bitfield(green, &info->var.green);
+			val |= convert_bitfield(blue, &info->var.blue);
 
 			pal[regno] = val;
 			ret = 0;
@@ -404,7 +392,7 @@ db9000fb_check_var_in(struct fb_var_screeninfo *var)
 static int
 db9000fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
+	struct db9000fb_info *fbi = info->par;
 
 	if (db9000fb_check_var_in(var) < 0)
 		return -EINVAL;
@@ -560,35 +548,35 @@ static void init_backlight(struct db9000fb_info *fbi)
  */
 static int db9000fb_set_par(struct fb_info *info)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
+	struct db9000fb_info *fbi = info->par;
 
-	fbi->fb.var.xres_virtual = fbi->fb.var.xres;
-	fbi->fb.var.yres_virtual = fbi->fb.var.yres *
+	info->var.xres_virtual = info->var.xres;
+	info->var.yres_virtual = info->var.yres *
 		NUM_OF_FRAMEBUFFERS;
 
-	if (fbi->fb.var.bits_per_pixel >= 16)
-		fbi->fb.fix.visual = FB_VISUAL_TRUECOLOR;
+	if (info->var.bits_per_pixel >= 16)
+		info->fix.visual = FB_VISUAL_TRUECOLOR;
 	else
-		fbi->fb.fix.visual = FB_VISUAL_PSEUDOCOLOR;
+		info->fix.visual = FB_VISUAL_PSEUDOCOLOR;
 
-	fbi->fb.fix.line_length = (fbi->fb.var.xres_virtual *
-					fbi->fb.var.bits_per_pixel) / 8;
-	if (fbi->fb.var.bits_per_pixel >= 16)
+	info->fix.line_length = (info->var.xres_virtual *
+					info->var.bits_per_pixel) / 8;
+	if (info->var.bits_per_pixel >= 16)
 		fbi->palette_size = 0;
 	else
-		fbi->palette_size = 1 << fbi->fb.var.bits_per_pixel;
+		fbi->palette_size = 1 << info->var.bits_per_pixel;
 
 	/* Set (any) board control register to handle new color depth */
-	db9000fb_set_truecolor(fbi->fb.fix.visual == FB_VISUAL_TRUECOLOR);
+	db9000fb_set_truecolor(info->fix.visual == FB_VISUAL_TRUECOLOR);
 
-	if (fbi->fb.var.bits_per_pixel >= 16) {
-		if (fbi->fb.cmap.len)
-			fb_dealloc_cmap(&fbi->fb.cmap);
+	if (info->var.bits_per_pixel >= 16) {
+		if (info->cmap.len)
+			fb_dealloc_cmap(&info->cmap);
 	} else {
-		fb_alloc_cmap(&fbi->fb.cmap, fbi->palette_size, 0);
+		fb_alloc_cmap(&info->cmap, fbi->palette_size, 0);
 	}
 
-	db9000fb_activate_var(&fbi->fb.var, fbi);
+	db9000fb_activate_var(&info->var, fbi);
 
 	return 0;
 }
@@ -601,7 +589,7 @@ static int db9000fb_set_par(struct fb_info *info)
  */
 static int db9000fb_blank(int blank, struct fb_info *info)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
+	struct db9000fb_info *fbi = info->par;
 	int i;
 
 	switch (blank) {
@@ -609,7 +597,7 @@ static int db9000fb_blank(int blank, struct fb_info *info)
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_NORMAL:
-		if (fbi->fb.fix.visual == FB_VISUAL_PSEUDOCOLOR) {
+		if (info->fix.visual == FB_VISUAL_PSEUDOCOLOR) {
 			for (i = 0; i < fbi->palette_size; i++)
 				db9000fb_setpalettereg(i, 0, 0, 0, 0, info);
 		}
@@ -620,8 +608,8 @@ static int db9000fb_blank(int blank, struct fb_info *info)
 
 	case FB_BLANK_UNBLANK:
 	/* TODO: if (db9000fb_blank_helper) db9000fb_blank_helper(blank); */
-		if (fbi->fb.fix.visual == FB_VISUAL_PSEUDOCOLOR)
-			fb_set_cmap(&fbi->fb.cmap, info);
+		if (info->fix.visual == FB_VISUAL_PSEUDOCOLOR)
+			fb_set_cmap(&info->cmap, info);
 		db9000fb_schedule_work(fbi, C_ENABLE);
 	}
 	return 0;
@@ -629,7 +617,7 @@ static int db9000fb_blank(int blank, struct fb_info *info)
 
 static int db9000fb_open(struct fb_info *info, int user)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
+	struct db9000fb_info *fbi = info->par;
 
 	/* Enable Controller only if its uses is zero*/
 	if (atomic_inc_return(&fbi->usage) == 1)
@@ -640,7 +628,7 @@ static int db9000fb_open(struct fb_info *info, int user)
 
 static int db9000fb_release(struct fb_info *info, int user)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
+	struct db9000fb_info *fbi = info->par;
 
 	if (atomic_dec_and_test(&fbi->usage))
 		set_ctrlr_state(fbi, C_DISABLE);
@@ -652,7 +640,7 @@ static int db9000fb_release(struct fb_info *info, int user)
 static int db9000fb_pan_display(struct fb_var_screeninfo *var,
 	struct fb_info *info)
 {
-	struct db9000fb_info *fbi = to_db9000fb(info);
+	struct db9000fb_info *fbi = info->par;
 	u32 frame_addr;
 	u_int y_bottom = var->yoffset;
 
@@ -711,12 +699,12 @@ static inline void set_hsync_time(struct db9000fb_info *fbi, unsigned int pcd)
 {
 	unsigned long htime;
 
-	if ((pcd == 0) || (fbi->fb.var.hsync_len == 0)) {
+	if ((pcd == 0) || (fbi->info->var.hsync_len == 0)) {
 		fbi->hsync_time = 0;
 		return;
 	}
 
-	htime = clk_get_rate(fbi->clk) / (pcd * fbi->fb.var.hsync_len);
+	htime = clk_get_rate(fbi->clk) / (pcd * fbi->info->var.hsync_len);
 
 	fbi->hsync_time = htime;
 }
@@ -962,7 +950,7 @@ static void db9000fb_enable_controller(struct db9000fb_info *fbi)
 	lcd_writel(fbi, DB9000_HVTER, fbi->reg_hvter);
 	lcd_writel(fbi, DB9000_PCTR, fbi->reg_pctr | DB9000_PCTR_PCR);
 
-	fbi->reg_dbar = fbi->fb.fix.smem_start;
+	fbi->reg_dbar = fbi->info->fix.smem_start;
 	fbi->reg_dear = fbi->reg_dbar + fbi->frame_size;
 
 	lcd_writel(fbi, DB9000_DBAR, fbi->reg_dbar);
@@ -1076,6 +1064,7 @@ static void set_ctrlr_state(struct db9000fb_info *fbi, u_int state)
 			db9000fb_setup_gpio(fbi, true);
 			db9000fb_lcd_power(fbi, 1);
 			db9000fb_enable_controller(fbi);
+			db9000fb_backlight_power(fbi, 1);
 			/* TODO __db9000fb_lcd_power(fbi, 1); */
 		}
 		break;
@@ -1152,69 +1141,29 @@ static void db9000fb_task(struct work_struct *work)
 	set_ctrlr_state(fbi, state);
 }
 
-#ifdef CONFIG_CPU_FREQ
 /*
- * CPU clock speed change handler. We need to adjust the LCD timing parameters
- * when the CPU clock is adjusted by the power management subsystem.
- *
- * TODO: Determine why f->new != 10*get_lclk_frequency_10khz()
+ * Clock speed change handler. We need to adjust the LCD timing parameters
+ * when the clock is adjusted for whatever reason.
  */
-static int
-db9000fb_freq_transition(
-	struct notifier_block *nb, unsigned long val, void *data)
+static int db9000fb_clk_notifier_cb(struct notifier_block *nb, unsigned long
+				    event, void *data)
 {
-	struct db9000fb_info *fbi = TO_INF(nb, freq_transition);
-	struct fb_var_screeninfo *var = &fbi->fb.var;
-	/* TODO struct cpufreq_freqs *f = data; */
+	struct db9000fb_info *fbi = TO_INF(nb, clk_rate_nb);
+	struct fb_var_screeninfo *var = &fbi->info->var;
 
-	switch (val) {
-	case CPUFREQ_PRECHANGE:
-		if (!fbi->ignore_cpufreq_notification)
-			set_ctrlr_state(fbi, C_DISABLE_CLKCHANGE);
-		break;
-
-	case CPUFREQ_POSTCHANGE:
-		if (!fbi->ignore_cpufreq_notification) {
-			setup_parallel_timing(fbi, var);
-			set_ctrlr_state(fbi, C_ENABLE_CLKCHANGE);
-		}
-		break;
+	switch (event) {
+	case PRE_RATE_CHANGE:
+		set_ctrlr_state(fbi, C_DISABLE_CLKCHANGE);
+		return NOTIFY_OK;
+	case POST_RATE_CHANGE:
+	case ABORT_RATE_CHANGE:
+		setup_parallel_timing(fbi, var);
+		set_ctrlr_state(fbi, C_ENABLE_CLKCHANGE);
+		return NOTIFY_OK;
+	default:
+		return NOTIFY_DONE;
 	}
-	return 0;
 }
-
-/*
- * Calculate the minimum period (in picoseconds) between two DMA requests
- * for the LCD controller. If we hit this, it means we're doing nothing but
- * LCD DMA.
- */
-static unsigned int db9000fb_display_dma_period(struct fb_var_screeninfo *var)
-{
-	/*
-	 * Period = pixclock * bits_per_byte * bytes_per_transfer /
-	 * memory_bits_per_pixel;
-	 */
-	return var->pixclock * 8 * 16 / var->bits_per_pixel;
-}
-
-static int
-db9000fb_freq_policy(struct notifier_block *nb, unsigned long val, void *data)
-{
-	struct db9000fb_info *fbi = TO_INF(nb, freq_policy);
-	struct fb_var_screeninfo *var = &fbi->fb.var;
-	struct cpufreq_policy *policy = data;
-
-	switch (val) {
-	case CPUFREQ_ADJUST:
-		pr_debug("min dma period: %d ps, new clock %d kHz\n",
-			db9000fb_display_dma_period(var),
-			policy->max);
-		/* TODO: fill in min/max values */
-		break;
-	}
-	return 0;
-}
-#endif
 
 #ifdef CONFIG_PM
 /*
@@ -1279,30 +1228,32 @@ static const struct dev_pm_ops db9000fb_pm_ops = {
 static void *db9000fb_init_fbinfo(struct device *dev,
 	struct db9000fb_info *fbi)
 {
+	struct fb_info *info = fbi->info;
+
 	fbi->clk = clk_get(dev, NULL);
 	if (IS_ERR(fbi->clk))
 		return NULL;
 
-	strcpy(fbi->fb.fix.id, DRIVER_NAME);
+	strcpy(info->fix.id, DRIVER_NAME);
 
 	fbi->dev = dev;
-	fbi->fb.fix.type	= FB_TYPE_PACKED_PIXELS;
-	fbi->fb.fix.type_aux	= 0;
-	fbi->fb.fix.xpanstep	= 0;
-	fbi->fb.fix.ypanstep	= 1;
-	fbi->fb.fix.ywrapstep	= 1;
-	fbi->fb.fix.accel	= FB_ACCEL_NONE;
+	info->fix.type	= FB_TYPE_PACKED_PIXELS;
+	info->fix.type_aux	= 0;
+	info->fix.xpanstep	= 0;
+	info->fix.ypanstep	= 1;
+	info->fix.ywrapstep	= 1;
+	info->fix.accel	= FB_ACCEL_NONE;
 
-	fbi->fb.var.nonstd	= 0;
-	fbi->fb.var.activate	= FB_ACTIVATE_NOW;
-	fbi->fb.var.height	= fbi->fb.var.yres;
-	fbi->fb.var.width	= fbi->fb.var.xres;
-	fbi->fb.var.accel_flags	= 0;
-	fbi->fb.var.vmode	= FB_VMODE_NONINTERLACED;
-	fbi->fb.pseudo_palette	= fbi->cmap;
-	fbi->fb.fbops		= &db9000fb_ops;
-	fbi->fb.flags		= FBINFO_DEFAULT;
-	fbi->fb.node		= -1;
+	info->var.nonstd	= 0;
+	info->var.activate	= FB_ACTIVATE_NOW;
+	info->var.height	= info->var.yres;
+	info->var.width	= info->var.xres;
+	info->var.accel_flags	= 0;
+	info->var.vmode	= FB_VMODE_NONINTERLACED;
+	info->pseudo_palette	= fbi->cmap;
+	info->fbops		= &db9000fb_ops;
+	info->flags		= FBINFO_DEFAULT;
+	info->node		= -1;
 
 	fbi->state		= C_STARTUP;
 	fbi->task_state		= (u_char)-1;
@@ -1338,7 +1289,7 @@ static int setup_blink_mode(struct device_node *np, struct db9000fb_info *fbi)
 	u32 blink_duty_cycle;
 	u32 pwmdc;
 
-	if (fbi->fb.var.bits_per_pixel != 24)
+	if (fbi->info->var.bits_per_pixel != 24)
 		return 0;
 
 	ret = of_property_read_u32(np, "blink-period-ms", &fast_blink_ms);
@@ -1377,6 +1328,7 @@ static int setup_blink_mode(struct device_node *np, struct db9000fb_info *fbi)
 static int db9000fb_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct fb_info *info;
 	struct db9000fb_info *fbi;
 	struct display_timings *disp_timings;
 	struct display_timing *disp_timing;
@@ -1389,12 +1341,13 @@ static int db9000fb_probe(struct platform_device *pdev)
 	struct resource *res;
 	int irq;
 	int ret;
-	const char *def_mode;
 
-	/* Alloc the db9000fb_info with the embedded pseudo_palette */
-	fbi = devm_kzalloc(dev, sizeof(struct db9000fb_info), GFP_KERNEL);
-	if (!fbi)
+	info = framebuffer_alloc(sizeof(struct db9000fb_info), dev);
+	if (!info)
 		return -ENOMEM;
+
+	fbi = info->par;
+	fbi->info = info;
 
 	disp_timings = of_get_display_timings(np);
 	if (!disp_timings)
@@ -1506,30 +1459,19 @@ static int db9000fb_probe(struct platform_device *pdev)
 	if (IS_ERR(fbi->pins_sleep))
 		dev_dbg(dev, "could not get sleep pinstate\n");
 
-	/* other */
-	if (np) {
-		of_property_read_string(np, "st,mode", &def_mode);
+	fb_videomode_to_var(&info->var, &mode);
 
-		if (of_get_property(np, "ignore_cpufreq_notification", NULL))
-			fbi->ignore_cpufreq_notification = true;
-	}
-
-	if (!mode_option)
-		mode_option = def_mode;
-
-	fb_videomode_to_var(&fbi->fb.var, &mode);
-
-	dev_info(dev, "got a %dx%dx%d LCD\n", fbi->fb.var.xres,
-			fbi->fb.var.yres, bpp);
+	dev_info(dev, "got a %dx%dx%d LCD\n", info->var.xres,
+			info->var.yres, bpp);
 
 	/* Initialize fb_info */
 	fbi->pdev = pdev;
-	fbi->fb.screen_base	= fb_mem_virt;
-	fbi->fb.fix.smem_start	= fb_mem_phys;
-	fbi->fb.fix.smem_len	= fb_mem_len;
-	fbi->fb.var.height	= fbi->fb.var.yres;
-	fbi->fb.var.width	= fbi->fb.var.xres;
-	fbi->fb.var.bits_per_pixel = bpp;
+	info->screen_base	= fb_mem_virt;
+	info->fix.smem_start	= fb_mem_phys;
+	info->fix.smem_len	= fb_mem_len;
+	info->var.height	= info->var.yres;
+	info->var.width	= info->var.xres;
+	info->var.bits_per_pixel = bpp;
 
 #if defined(CONFIG_BACKLIGHT_DB9000_LCD)
 	get_backlight_pwm_clock(np, fbi);
@@ -1543,7 +1485,7 @@ static int db9000fb_probe(struct platform_device *pdev)
 	}
 #endif
 
-	ret = db9000fb_check_var(&fbi->fb.var, &fbi->fb);
+	ret = db9000fb_check_var(&info->var, info);
 	if (ret) {
 		dev_err(dev, "failed to get suitable mode\n");
 		goto err_free_bl;
@@ -1551,26 +1493,25 @@ static int db9000fb_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, fbi);
 
-	ret = register_framebuffer(&fbi->fb);
+	ret = register_framebuffer(info);
 	if (ret < 0) {
 		dev_err(dev, "Failed to register framebuffer device:%d\n", ret);
 		goto err_clear_plat_data;
 	}
 
-#ifdef CONFIG_CPU_FREQ
-	fbi->freq_transition.notifier_call = db9000fb_freq_transition;
-	fbi->freq_policy.notifier_call = db9000fb_freq_policy;
-	cpufreq_register_notifier(&fbi->freq_transition,
-			CPUFREQ_TRANSITION_NOTIFIER);
-	cpufreq_register_notifier(&fbi->freq_policy,
-			CPUFREQ_POLICY_NOTIFIER);
-#endif
+	/* Register the clock change callback */
+	fbi->clk_rate_nb.notifier_call = db9000fb_clk_notifier_cb;
+	ret = clk_notifier_register(fbi->clk, &fbi->clk_rate_nb);
+	if (ret) {
+		dev_err(dev, "Unable to register clock notifier\n");
+		goto err_clear_plat_data;
+	}
 
 	/* Read the core version register and print it out */
 	fbi->db9000_rev = lcd_readl(fbi, DB9000_CIR);
 	dev_info(dev, "Core ID reg: 0x%08X\n", fbi->db9000_rev);
 
-	ret = db9000fb_set_par(&fbi->fb);
+	ret = db9000fb_set_par(info);
 	if (ret) {
 		dev_err(dev, "Failed to set parameters\n");
 		goto err_clear_plat_data;
@@ -1583,8 +1524,8 @@ static int db9000fb_probe(struct platform_device *pdev)
 
 err_clear_plat_data:
 	platform_set_drvdata(pdev, NULL);
-	if (fbi->fb.cmap.len)
-		fb_dealloc_cmap(&fbi->fb.cmap);
+	if (info->cmap.len)
+		fb_dealloc_cmap(&info->cmap);
 err_free_bl:
 	clk_put(fbi->clk);
 
@@ -1593,19 +1534,19 @@ err_free_bl:
 
 static int db9000fb_remove(struct platform_device *pdev)
 {
-	struct db9000fb_info *fbi = platform_get_drvdata(pdev);
-	struct fb_info *info;
+	struct device *dev = &pdev->dev;
+	struct fb_info *info = dev_get_drvdata(dev);
+	struct db9000fb_info *fbi;
 
-	if (!fbi)
+	if (!info)
 		return 0;
 
-	info = &fbi->fb;
-
+	fbi = info->par;
 	unregister_framebuffer(info);
 	db9000fb_disable_controller(fbi);
 
-	if (fbi->fb.cmap.len)
-		fb_dealloc_cmap(&fbi->fb.cmap);
+	if (info->cmap.len)
+		fb_dealloc_cmap(&info->cmap);
 
 	clk_put(fbi->clk);
 
@@ -1630,35 +1571,8 @@ static struct platform_driver db9000fb_driver = {
 	},
 };
 
-#ifndef MODULE
-static int __init db9000fb_setup(char *options)
-{
-	char *this_opt;
-
-	/* Parse user speficied options (`video=db9000:') */
-	if (!options || !*options)
-		return 0;
-
-	while ((this_opt = strsep(&options, ",")) != NULL) {
-		if (!*this_opt)
-			continue;
-		else
-			mode_option = this_opt;
-	}
-	return 0;
-}
-#endif
-
 static int __init db9000fb_init(void)
 {
-	/* For kernel boot options (in 'video=pm3fb:<options>' format) */
-#ifndef MODULE
-	char *option = NULL;
-
-	if (fb_get_options("db9000", &option))
-		return -ENODEV;
-	db9000fb_setup(option);
-#endif
 	return platform_driver_register(&db9000fb_driver);
 }
 module_init(db9000fb_init);

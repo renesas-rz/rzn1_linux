@@ -727,6 +727,7 @@ static int usbf_probe(struct platform_device *ofdev)
 
 	/* Resetting the PLL is handled via the clock driver as it has common
 	 * registers with USB Host */
+	writel(readl(&chip->regs->epctr) & ~D_SYS_EPC_RST, &chip->regs->epctr);
 
 	spin_lock_init(&chip->lock);
 

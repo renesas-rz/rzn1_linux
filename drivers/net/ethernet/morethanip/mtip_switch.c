@@ -36,49 +36,66 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/if_vlan.h>
 
-#define DRV_NAME	"mt5pt_switch"
-#define DRV_VERSION	"0.1"
+#define DRV_NAME			"mt5pt_switch"
+#define DRV_VERSION			"0.2"
 
-/* Number of downstream ports */
-#define MT5PT_NR_PORTS 4
+#define MT5PT_NR_PORTS			4 /* Number of downstream ports */
+#define MT5PT_UPSTREAM_PORT_NR		4
 
-#define MT5PT_UPSTREAM_PORT_NR	4
+#define MDIO_TIMEOUT			100 /* in MDIO clocks */
+#define FRM_LENGTH_EXTRA		34
+#define MAX_MTU				9190
 
-#define MDIO_TIMEOUT		100 /* in MDIO clocks */
-#define DEFAULT_MTU		1500
-#define MAX_MTU			9216
-#define FRM_LENGTH_EXTRA	34
-
-#define PHY_REG_MASK		0x1f
-#define PHY_ID_MASK		0x1f
+#define PHY_REG_MASK			0x1f
+#define PHY_ID_MASK			0x1f
 
 /* MoreThanIP 5pt Switch regs */
-#define MT5PT_REVISION		0x0
-#define MT5PT_SCRATCH		0x4
-#define MT5PT_PORT_ENA		0x8
-#define  MT5PT_PORT_ENA_TX(x)	BIT((x) + 16)
-#define  MT5PT_PORT_ENA_RX(x)	BIT(x)
-#define  MT5PT_PORT_ENA_TXRX(x)	(MT5PT_PORT_ENA_TX(x) | MT5PT_PORT_ENA_RX(x))
-#define MT5PT_AUTH_PORT(x)	(0x240 + (x) * 4)
+#define MT5PT_REVISION			0x0
+#define MT5PT_SCRATCH			0x4
+#define MT5PT_PORT_ENA			0x8
+#define  MT5PT_PORT_ENA_RX(x)		BIT((x) + 16)
+#define  MT5PT_PORT_ENA_TX(x)		BIT(x)
+#define  MT5PT_PORT_ENA_TXRX(x)		(MT5PT_PORT_ENA_TX(x) | MT5PT_PORT_ENA_RX(x))
+#define MT5PT_AUTH_PORT(x)		(0x240 + (x) * 4)
 #define  MT5PT_AUTH_PORT_AUTHORIZED	BIT(0)
 #define  MT5PT_AUTH_PORT_CONTROLLED	BIT(1)
 #define  MT5PT_AUTH_PORT_EAPOL_EN	BIT(2)
 #define  MT5PT_AUTH_PORT_GUEST		BIT(3)
 #define  MT5PT_AUTH_PORT_EAPOL_PORT(x)	((x) << 12)
-#define MDIO_CFG_STATUS		0x700
-#define  MDIO_CFG_STATUS_BUSY	BIT(0)
-#define  MDIO_CFG_STATUS_ERR	BIT(1)
-#define  MDIO_CFG_MIN_DIV	5
-#define  MDIO_CFG_MAX_DIV	511
-#define MDIO_COMMAND		0x704
-#define  MDIO_COMMAND_READ	BIT(15)
-#define MDIO_DATA		0x708
-#define MT5PT_MAC_CMD_CFG(x)	(0x808 + (x) * 0x400)
-#define  MT5PT_TX_ENA		BIT(0)
-#define  MT5PT_RX_ENA		BIT(1)
-#define  MT5PT_MBPS_1000	BIT(3)
-#define MT5PT_MAC_FRM_LENGTHn(x)	(0x814 + (x) * 0x400)
+#define MT5PT_LK_CTRL			0x400
+#define MT5PT_LK_STATUS			0x404
+#define MT5PT_LK_ADDR_CTRL		0x408
+#define  MT5PT_LK_PORT_NUM(x)		BIT(x)
+#define  MT5PT_LK_PORT_NUM_MASK		0xfff
+#define  MT5PT_LK_WAIT_COMPLETE		BIT(27)
+#define  MT5PT_LK_DELETE_PORT		BIT(30)
+#define  MT5PT_LK_BUSY			BIT(31)
+#define MDIO_CFG_STATUS			0x700
+#define  MDIO_CFG_STATUS_BUSY		BIT(0)
+#define  MDIO_CFG_STATUS_ERR		BIT(1)
+#define  MDIO_CFG_MIN_DIV		5
+#define  MDIO_CFG_MAX_DIV		511
+#define MDIO_COMMAND			0x704
+#define  MDIO_COMMAND_READ		BIT(15)
+#define MDIO_DATA			0x708
+
+#define MT5PT_MAC_CMD_CFG(x)		(0x808 + (x) * 0x400)
+#define  MT5PT_CC_TX_ENA		BIT(0)
+#define  MT5PT_CC_RX_ENA		BIT(1)
+#define  MT5PT_CC_MBPS_1000		BIT(3)
+#define  MT5PT_CC_CNTL_FRM_ENA		BIT(23)
+#define MT5PT_MAC_FRM_LENGTH(x)		(0x814 + (x) * 0x400)
+
+#define MT5PT_HUB_CONFIG		0x3e00
+#define  MT5PT_HC_HUB_ENA		BIT(0)
+#define  MT5PT_HC_RETRANSMIT_ENA	BIT(1)
+#define  MT5PT_HC_TRIGGER_MODE		BIT(2)
+#define  MT5PT_HC_HUB_ISOLATE		BIT(3)
+#define MT5PT_HUB_GROUP			0x3e04
+#define  MT5PT_HUB_GROUP_PORT(x)	BIT(x)
+#define  MT5PT_HUB_GROUP_MASK		0xf
 
 struct mt5pt_switch_port {
 	struct net_device *ndev;
@@ -89,11 +106,11 @@ struct mt5pt_switch_port {
 	struct phy_device *phy_dev;
 	int speed;
 	int link;
+	bool early_en;
 };
 
 struct mt5pt_switch {
 	void __iomem	*regs;
-	spinlock_t	lock;	/* protect access to MDIO bus */
 	struct clk	*clk;
 	struct device	*dev;
 	struct mii_bus	*bus;
@@ -116,7 +133,23 @@ static void mt5pt_switch_port_enable(void __iomem *regs, int port_nr)
 	writel(val, regs + MT5PT_PORT_ENA);
 }
 
-static void mt5pt_switch_port_disable(void __iomem *regs, int port_nr)
+/*
+ * Remove entries for forwarding lookup table associated to port_nr.
+ * Remove only dynamic entries (no static entries), i.e. only entries added in
+ * learning mode.
+ */
+static void mt5pt_switch_fdb_flush_port(void __iomem *regs, int port_nr)
+{
+	u32 val;
+
+	val = readl(regs + MT5PT_LK_ADDR_CTRL);
+	val |= MT5PT_LK_DELETE_PORT | MT5PT_LK_WAIT_COMPLETE;
+	val = (val & MT5PT_LK_PORT_NUM_MASK) |
+		MT5PT_LK_PORT_NUM(port_nr);
+	writel(val, regs + MT5PT_LK_ADDR_CTRL);
+}
+
+static void mt5pt_switch_port_disable_rxtx(void __iomem *regs, int port_nr)
 {
 	u32 val;
 
@@ -125,9 +158,15 @@ static void mt5pt_switch_port_disable(void __iomem *regs, int port_nr)
 	writel(val, regs + MT5PT_PORT_ENA);
 }
 
+static void mt5pt_switch_port_disable(void __iomem *regs, int port_nr)
+{
+	mt5pt_switch_port_disable_rxtx(regs, port_nr);
+	mt5pt_switch_fdb_flush_port(regs, port_nr);
+}
+
 static void mt5pt_switch_port_mtu(void __iomem *regs, int port_nr, int mtu)
 {
-	writel(mtu + FRM_LENGTH_EXTRA, regs + MT5PT_MAC_FRM_LENGTHn(port_nr));
+	writel(mtu + FRM_LENGTH_EXTRA, regs + MT5PT_MAC_FRM_LENGTH(port_nr));
 }
 
 static void mt5pt_switch_handle_link_change(struct net_device *dev)
@@ -135,12 +174,14 @@ static void mt5pt_switch_handle_link_change(struct net_device *dev)
 	struct mt5pt_switch_port *port = netdev_priv(dev);
 	struct mt5pt_switch *mt5pt = port->mt5pt;
 	struct phy_device *phydev = port->phy_dev;
+	u32 val;
 
 	if (phydev->link && (port->speed != phydev->speed)) {
-		u32 val = readl(mt5pt->regs + MT5PT_MAC_CMD_CFG(port->port_nr));
-		val &= ~MT5PT_MBPS_1000;
+		val = readl(mt5pt->regs + MT5PT_MAC_CMD_CFG(port->port_nr));
+		val &= ~MT5PT_CC_MBPS_1000;
 		if (phydev->speed == SPEED_1000)
-			val |= MT5PT_MBPS_1000;
+			val |= MT5PT_CC_MBPS_1000;
+		val |= MT5PT_CC_CNTL_FRM_ENA;
 		writel(val, mt5pt->regs + MT5PT_MAC_CMD_CFG(port->port_nr));
 
 		port->speed = phydev->speed;
@@ -177,9 +218,7 @@ static int mt5pt_switch_reset(struct mii_bus *bus)
 	u32 ver;
 	int i;
 
-	spin_lock(&mt5pt->lock);
 	mt5pt_switch_setup_mdio(mt5pt);
-	spin_unlock(&mt5pt->lock);
 
 	/* dump hardware version info */
 	ver = readl(mt5pt->regs + MT5PT_REVISION);
@@ -230,31 +269,21 @@ static int mt5pt_switch_read(struct mii_bus *bus, int phy_id, int phy_reg)
 
 	reg = MDIO_COMMAND_READ | (phy_id << 5) | phy_reg;
 
-	spin_lock(&mt5pt->lock);
-
 	ret = mt5pt_switch_wait_for_mdio(mt5pt);
-	if (ret < 0) {
-		spin_unlock(&mt5pt->lock);
+	if (ret < 0)
 		return ret;
-	}
 
 	writel(reg, mt5pt->regs + MDIO_COMMAND);
 
 	ret = mt5pt_switch_wait_for_mdio(mt5pt);
-	if (ret < 0) {
-		spin_unlock(&mt5pt->lock);
+	if (ret < 0)
 		return ret;
-	}
 
 	ret = readl(mt5pt->regs + MDIO_DATA);
 
 	reg = readl(mt5pt->regs + MDIO_CFG_STATUS);
-	if (reg & MDIO_CFG_STATUS_ERR) {
-		spin_unlock(&mt5pt->lock);
+	if (reg & MDIO_CFG_STATUS_ERR)
 		return -EIO;
-	}
-
-	spin_unlock(&mt5pt->lock);
 
 	dev_dbg(mt5pt->dev, "phy[%d] reg%d=0x%x\n", phy_id, phy_reg, ret);
 	return ret;
@@ -273,13 +302,9 @@ static int mt5pt_switch_write(struct mii_bus *bus, int phy_id,
 
 	reg = (phy_id << 5) | phy_reg;
 
-	spin_lock(&mt5pt->lock);
-
 	ret = mt5pt_switch_wait_for_mdio(mt5pt);
-	if (ret < 0) {
-		spin_unlock(&mt5pt->lock);
+	if (ret < 0)
 		return ret;
-	}
 
 	writel(reg, mt5pt->regs + MDIO_COMMAND);
 	writel(phy_data, mt5pt->regs + MDIO_DATA);
@@ -287,9 +312,154 @@ static int mt5pt_switch_write(struct mii_bus *bus, int phy_id,
 	/* Wait for it to complete */
 	ret = mt5pt_switch_wait_for_mdio(mt5pt);
 
-	spin_unlock(&mt5pt->lock);
+	return ret;
+}
+
+static int mt5pt_switch_port_open(struct net_device *dev)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+	struct mt5pt_switch *mt5pt = port->mt5pt;
+	struct phy_device *phydev = port->phy_dev;
+
+	dev_info(mt5pt->dev, "open port %c\n", 'A' + port->port_nr);
+
+	/* if the phy is not yet registered, retry later */
+	if (!phydev)
+		return -EAGAIN;
+
+	mt5pt_switch_port_enable(mt5pt->regs, port->port_nr);
+	dev->mtu = MAX_MTU;
+
+	/* schedule a link state check */
+	phy_start(phydev);
+
+	return 0;
+}
+
+static int mt5pt_switch_port_init(struct net_device *dev)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+	int ret = 0;
+
+	if (port->early_en) {
+		netif_device_attach(dev);
+		dev_open(dev);
+	}
 
 	return ret;
+}
+
+static int mt5pt_switch_port_stop(struct net_device *dev)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+	struct mt5pt_switch *mt5pt = port->mt5pt;
+
+	dev_info(mt5pt->dev, "stop port %c\n", 'A' + port->port_nr);
+
+	mt5pt_switch_port_disable(mt5pt->regs, port->port_nr);
+
+	return 0;
+}
+
+static int mt5pt_switch_port_ioctl(struct net_device *dev, struct ifreq *ifrq, int cmd)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+	struct mt5pt_switch *mt5pt = port->mt5pt;
+	struct phy_device *phydev = port->phy_dev;
+
+	dev_dbg(mt5pt->dev, "ioctl port %c\n", 'A' + port->port_nr);
+
+	return phy_mii_ioctl(phydev, ifrq, cmd);
+}
+
+static netdev_tx_t mt5pt_switch_port_start_xmit(struct sk_buff *skb,
+						struct net_device *dev)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+	struct mt5pt_switch *mt5pt = port->mt5pt;
+
+	dev_info(mt5pt->dev, "Switch devices can't send data, use the GMAC\n");
+
+	dev->stats.tx_dropped++;
+	netif_stop_queue(dev);
+
+	return NETDEV_TX_BUSY;
+}
+
+static int mt5pt_switch_port_change_mtu(struct net_device *dev, int new_mtu)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+	struct mt5pt_switch *mt5pt = port->mt5pt;
+
+	if (new_mtu + FRM_LENGTH_EXTRA > MAX_MTU)
+		return -EINVAL;
+
+	mt5pt_switch_port_mtu(mt5pt->regs, port->port_nr, new_mtu);
+	dev->mtu = new_mtu;
+
+	return 0;
+}
+
+static const struct net_device_ops mt5pt_switch_netdev_ops = {
+	/* When using an NFS rootfs, we can only bring up the GMAC behind the
+	 * upstream port. So we need ndo_init to enable the Switch's downstream
+	 * ports ("swport-early-enable" DT prop) and kick the PHY.
+	 */
+	.ndo_init		= mt5pt_switch_port_init,
+	.ndo_open		= mt5pt_switch_port_open,
+	.ndo_stop		= mt5pt_switch_port_stop,
+	.ndo_do_ioctl		= mt5pt_switch_port_ioctl,
+	.ndo_start_xmit		= mt5pt_switch_port_start_xmit,
+	.ndo_change_mtu		= mt5pt_switch_port_change_mtu,
+};
+
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
+{
+	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
+	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+}
+
+static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+
+	return phy_ethtool_gset(port->phy_dev, cmd);
+}
+
+static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+{
+	struct mt5pt_switch_port *port = netdev_priv(dev);
+
+	return phy_ethtool_sset(port->phy_dev, cmd);
+}
+
+static const struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+	.get_settings		= netdev_get_settings,
+	.set_settings		= netdev_set_settings,
+	.get_link		= ethtool_op_get_link,
+	.get_ts_info		= ethtool_op_get_ts_info,
+};
+
+static int mt5pt_switch_remove(struct platform_device *pdev)
+{
+	struct mt5pt_switch *mt5pt = platform_get_drvdata(pdev);
+	int i;
+
+	for (i = 0; i < MT5PT_NR_PORTS; i++) {
+		struct mt5pt_switch_port *port = mt5pt->ports[i];
+
+		if (port->ndev) {
+			unregister_netdev(port->ndev);
+			free_netdev(port->ndev);
+		}
+	}
+
+	if (mt5pt->bus)
+		mdiobus_unregister(mt5pt->bus);
+
+	return 0;
 }
 
 static void mt5pt_switch_reset_phy(struct platform_device *pdev)
@@ -387,143 +557,14 @@ static int mt5pt_switch_probe_dt(struct mt5pt_switch *mt5pt, struct device *dev)
 		port->phy_addr = phy_addr;
 		port->phy_if = phy_mode;
 		port->phy_dev = NULL;
+		port->early_en = of_property_read_bool(phy_node,
+						       "swport-early-enable");
 
 		port_nr++;
 	}
 
 	/* Enable the upstream port */
 	mt5pt_switch_port_enable(mt5pt->regs, MT5PT_UPSTREAM_PORT_NR);
-
-	return 0;
-}
-
-static int mt5pt_switch_port_open(struct net_device *dev)
-{
-	struct mt5pt_switch_port *port = netdev_priv(dev);
-	struct mt5pt_switch *mt5pt = port->mt5pt;
-	struct phy_device *phydev = port->phy_dev;
-
-	dev_info(mt5pt->dev, "open port %c\n", 'A' + port->port_nr);
-
-	/* if the phy is not yet registered, retry later */
-	if (!phydev)
-		return -EAGAIN;
-
-	mt5pt_switch_port_enable(mt5pt->regs, port->port_nr);
-	dev->mtu = MAX_MTU;
-
-	/* schedule a link state check */
-	phy_start(phydev);
-
-	return 0;
-}
-
-static int mt5pt_switch_port_stop(struct net_device *dev)
-{
-	struct mt5pt_switch_port *port = netdev_priv(dev);
-	struct mt5pt_switch *mt5pt = port->mt5pt;
-
-	dev_info(mt5pt->dev, "stop port %c\n", 'A' + port->port_nr);
-
-	mt5pt_switch_port_disable(mt5pt->regs, port->port_nr);
-
-	return 0;
-}
-
-static int mt5pt_switch_port_ioctl(struct net_device *dev, struct ifreq *ifrq, int cmd)
-{
-	struct mt5pt_switch_port *port = netdev_priv(dev);
-	struct mt5pt_switch *mt5pt = port->mt5pt;
-	struct phy_device *phydev = port->phy_dev;
-
-	dev_dbg(mt5pt->dev, "ioctl port %c\n", 'A' + port->port_nr);
-
-	return phy_mii_ioctl(phydev, ifrq, cmd);
-}
-
-static netdev_tx_t mt5pt_switch_port_start_xmit(struct sk_buff *skb,
-						struct net_device *dev)
-{
-	struct mt5pt_switch_port *port = netdev_priv(dev);
-	struct mt5pt_switch *mt5pt = port->mt5pt;
-
-	dev_info(mt5pt->dev, "Switch devices can't send data, use the GMAC\n");
-
-	dev->stats.tx_dropped++;
-	netif_stop_queue(dev);
-
-	return NETDEV_TX_BUSY;
-}
-
-static int mt5pt_switch_port_change_mtu(struct net_device *dev, int new_mtu)
-{
-	struct mt5pt_switch_port *port = netdev_priv(dev);
-	struct mt5pt_switch *mt5pt = port->mt5pt;
-
-	mt5pt_switch_port_mtu(mt5pt->regs, port->port_nr, new_mtu);
-	dev->mtu = new_mtu;
-
-	return 0;
-}
-
-static const struct net_device_ops mt5pt_switch_netdev_ops = {
-	/* When using an NFS rootfs, we can only bring up the GMAC behind the
-	 * upstream port. So we need ndo_init to enable the Switch's downstream
-	 * ports and kick the PHY.
-	 */
-	.ndo_init		= mt5pt_switch_port_open,
-	.ndo_open		= mt5pt_switch_port_open,
-	.ndo_stop		= mt5pt_switch_port_stop,
-	.ndo_do_ioctl		= mt5pt_switch_port_ioctl,
-	.ndo_start_xmit		= mt5pt_switch_port_start_xmit,
-	.ndo_change_mtu		= mt5pt_switch_port_change_mtu,
-};
-
-static void netdev_get_drvinfo(struct net_device *dev,
-			struct ethtool_drvinfo *info)
-{
-	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
-}
-
-static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-{
-	struct mt5pt_switch_port *port = netdev_priv(dev);
-
-	return  phy_ethtool_gset(port->phy_dev, cmd);
-}
-
-static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-{
-	struct mt5pt_switch_port *port = netdev_priv(dev);
-
-	return phy_ethtool_sset(port->phy_dev, cmd);
-}
-
-static const struct ethtool_ops netdev_ethtool_ops = {
-	.get_drvinfo		= netdev_get_drvinfo,
-	.get_settings		= netdev_get_settings,
-	.set_settings		= netdev_set_settings,
-	.get_link		= ethtool_op_get_link,
-	.get_ts_info		= ethtool_op_get_ts_info,
-};
-
-static int mt5pt_switch_remove(struct platform_device *pdev)
-{
-	struct mt5pt_switch *mt5pt = platform_get_drvdata(pdev);
-	int i;
-
-	for (i = 0; i < MT5PT_NR_PORTS; i++) {
-		struct mt5pt_switch_port *port = mt5pt->ports[i];
-
-		if (port->ndev) {
-			unregister_netdev(port->ndev);
-			free_netdev(port->ndev);
-		}
-	}
-
-	if (mt5pt->bus)
-		mdiobus_unregister(mt5pt->bus);
 
 	return 0;
 }
@@ -576,7 +617,6 @@ static int mt5pt_switch_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, mt5pt);
 	mt5pt->dev = dev;
-	spin_lock_init(&mt5pt->lock);
 
 	/* register the mii bus */
 	ret = of_mdiobus_register(mt5pt->bus, dev->of_node);
@@ -611,6 +651,15 @@ static int mt5pt_switch_probe(struct platform_device *pdev)
 
 		/* libphy will determine the link state */
 		netif_carrier_off(port->ndev);
+
+		/*
+		 * Change default net device name to match switchdev naming
+		 * convention even it is not based on switchdev driver model
+		 * Temporary solution. Must be done later with udev
+		 * see switchdev.txt
+		 */
+		snprintf(port->ndev->name, IFNAMSIZ, "sw%%dp%d", i);
+		dev_alloc_name(port->ndev, port->ndev->name);
 
 		if (register_netdev(port->ndev))
 			goto err;

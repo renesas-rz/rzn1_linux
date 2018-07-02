@@ -77,24 +77,6 @@
 			label = "pca7";
 			gpios = <&pca9698 7 GPIO_ACTIVE_HIGH>;
 		};
-
-		/* These aren't LEDs, they are gpios attached to the pca9698
-		 * port expander. They select the I2C master used to access the
-		 * EEPROM device. The ACTIVE LOW/HIGH settings ensures Linux
-		 * sets the correctly if not done by U-Boot.
-		 */
-		ctrl0 {
-			label = "ctrl0";
-			gpios = <&pca9698 16 GPIO_ACTIVE_LOW>;
-		};
-		ctrl1 {
-			label = "ctrl1";
-			gpios = <&pca9698 17 GPIO_ACTIVE_HIGH>;
-		};
-		ctrl2 {
-			label = "ctrl2";
-			gpios = <&pca9698 18 GPIO_ACTIVE_HIGH>;
-		};
 	};
 };
 
@@ -114,20 +96,18 @@
 #define mdio1 hoard
 #define lcd fb0
 
-#include "rzn1d-db-pinmux.dts"
+#include "rzn1d-db-pinmux.dtsi"
 
 &ddrctrl {
 	status = "okay";
 };
 
-/* If you want to use High Resolution timers (hrtimers), e.g. for real-time
- * Linux, you need more than just the ARM architected timer. Hence we enable
- * timer1. Note, timer0 may be used by the Cortex M3 software.
- */
+/* Note, timer0 may be used by the Cortex M3 software */
 &timer1 {
 	status = "okay";
 	/* Enable the /25 prescaler only on the 16-bit timers */
-	renesas,src-prescaler = <1>, <1>, <1>, <1>, <1>, <1>, <0>, <0>;
+	renesas,clk-prescaler = <1 1 1 1 1 1 0 0>;
+	renesas,timer-rating = <150 150 150 150 150 150 460 460>;
 };
 
 /* Calculated gpio irq numbers: gpioXa Y = 32*X + Y */
@@ -161,6 +141,26 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 		gpio-bank-name="pca";
+
+		/* gpio-hogs to enable access to the EEPROM */
+		eeprom_ctrl0 {
+			gpio-hog;
+			gpios = <16 0>;
+			output-high;
+			line-name = "eeprom-ctrl0-gpio";
+		};
+		eeprom_ctrl1 {
+			gpio-hog;
+			gpios = <17 0>;
+			output-low;
+			line-name = "eeprom-ctrl1-gpio";
+		};
+		eeprom_ctrl2 {
+			gpio-hog;
+			gpios = <18 0>;
+			output-low;
+			line-name = "eeprom-ctrl2-gpio";
+		};
 	};
 	lm75: lm75@49 {
 		/* Ext Board: Temperature sensor */
@@ -185,7 +185,15 @@
 };
 &gpio1 {
 	status = "okay";
+	u-boot,dm-pre-reloc;
 };
+&gpio1a {
+	u-boot,dm-pre-reloc;
+};
+&gpio1b {
+	u-boot,dm-pre-reloc;
+};
+
 &gpio2 {
 	status = "okay";
 };
@@ -301,7 +309,7 @@
 	/* Ext Board */
 	status = "okay";
 };
-&wdtsafe0 {
+&wdt0 {
 	status = "okay";
 };
 &dma0 {

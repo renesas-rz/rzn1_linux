@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -887,12 +888,17 @@ static int rzn1_pinctrl_probe(struct platform_device *pdev)
 {
 	struct rzn1_pinctrl *ipctl;
 	struct resource *res;
+	struct clk *clk;
 	int ret;
 
 	/* Create state holders etc for this driver */
 	ipctl = devm_kzalloc(&pdev->dev, sizeof(*ipctl), GFP_KERNEL);
 	if (!ipctl)
 		return -ENOMEM;
+
+	clk = devm_clk_get(&pdev->dev, "bus");
+	if (IS_ERR(clk) || clk_prepare_enable(clk))
+		dev_info(&pdev->dev, "no clock source\n");
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ipctl->lev1_phys = (u32) res->start;

@@ -91,7 +91,7 @@ config ORION_TIMER
 	  Enables the support for the Orion timer driver
 
 config RZN1_TIMER
-	bool "Renesas RZ/N1 UDL Timer"
+	bool "Renesas RZ/N1 Timer"
 
 config SUN4I_TIMER
 	bool "Sun4i timer driver" if COMPILE_TEST

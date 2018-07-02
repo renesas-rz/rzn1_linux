@@ -838,8 +838,8 @@ static int stmmac_init_phy(struct net_device *dev)
 		phydev = of_phy_connect(dev, priv->plat->phy_node,
 					&stmmac_adjust_link, 0, interface);
 	} else {
-		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%s-%x",
-			 dev->name, priv->plat->bus_id);
+		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%lx-%x",
+			 dev->base_addr, priv->plat->bus_id);
 
 		snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
 			 priv->plat->phy_addr);
@@ -1592,7 +1592,8 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
 	if (priv->extend_desc && (priv->mode == STMMAC_RING_MODE))
 		atds = 1;
 
-	ret = priv->hw->dma->reset(priv->ioaddr);
+	if (!priv->plat->do_not_reset)
+		ret = priv->hw->dma->reset(priv->ioaddr);
 	if (ret) {
 		dev_err(priv->device, "Failed to reset the dma\n");
 		return ret;
@@ -1808,7 +1809,7 @@ static int stmmac_open(struct net_device *dev)
 		goto init_error;
 	}
 
-	ret = stmmac_hw_setup(dev, true);
+	ret = stmmac_hw_setup(dev, !priv->plat->ptp_disabled);
 	if (ret < 0) {
 		pr_err("%s: Hw setup failed\n", __func__);
 		goto init_error;

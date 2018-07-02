@@ -175,7 +175,7 @@
 #define RZN1_HCLK_SWITCH_ID			122
 #define RZN1_CLK_SWITCH_ID			123
 #define RZN1_HCLK_RTC_ID			124
-#define RZN1_RSTN_FW_RTC_ID			125
+#define RZN1_RST_RTC_ID				125
 #define RZN1_HCLK_ROM_ID			126
 #define RZN1_CLK_CM3_ID				127
 #define RZN1_HCLK_CM3_ID			128

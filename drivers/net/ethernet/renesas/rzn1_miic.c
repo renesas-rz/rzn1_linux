@@ -42,6 +42,7 @@
 #include <linux/of_address.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
+#include <linux/of_platform.h>
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -255,11 +256,35 @@ static void rzn1_miic_setup(struct rzn1_miic_port *port, int duplex, int speed,
 	rin_writel_to_prot_bits(miic, CONVRST, val, PHYIF_RST(port->phy_nr));
 }
 
+/*
+ * Find a parent node that will have a driver attached to it.
+ * This has to cope with "snps,dwmac-mdio" nodes that do not have a driver but
+ * do have a compatible prop but without a status prop. Unfortunately, the
+ * of_device_is_available() func assumes that a missing status prop is the same
+ * as status=okay.
+ */
+static struct device_node *get_parent_node(struct device_node *np)
+{
+	struct property *prop, *stat;
+
+	while (np) {
+		prop = of_find_property(np, "compatible", NULL);
+		stat = of_find_property(np, "status", NULL);
+
+		if (prop && stat && of_device_is_available(np))
+			return np;
+
+		np = of_get_next_parent(np);
+	}
+
+	return NULL;
+}
+
 static int rzn1_miic_setup_ports(struct rzn1_miic *miic, struct device *dev)
 {
 	struct device_node *node = dev->of_node;
 	struct device_node *port_node;
-	int nr_ports;
+	int nr_ports, i;
 	int phy_nr = 0;
 	u32 prop;
 
@@ -290,6 +315,7 @@ static int rzn1_miic_setup_ports(struct rzn1_miic *miic, struct device *dev)
 		struct rzn1_miic_port *port;
 		struct device_node *phy_node;
 		struct phy_device *phy_dev;
+		struct platform_device *parent_dev;
 		int mode;
 
 		phy_nr++;
@@ -315,6 +341,23 @@ static int rzn1_miic_setup_ports(struct rzn1_miic *miic, struct device *dev)
 				phy_node->full_name);
 			continue;
 		}
+
+		/*
+		 * In a simple world, if there is no PHY device, we could return
+		 * EPROBE_DEFER because we know the PHY hasn't yet been probed.
+		 * However, we would like the driver to work where a dtb for a
+		 * board with a plug-on board that add extra PHYs, also works
+		 * without the plug-on board.
+		 * Test if the PHY should have been probed by now by seeing if
+		 * the PHYs parent node has a device associated with it.
+		 */
+		parent_dev = of_find_device_by_node(get_parent_node(phy_node));
+		if (!parent_dev || !platform_get_drvdata(parent_dev)) {
+			dev_info(dev, "%s phy parent has not been probed yet\n",
+				 phy_node->full_name);
+			return -EPROBE_DEFER;
+		}
+
 		if (!phy_dev) {
 			dev_info(dev, "%s phy is not physically present\n",
 				 phy_node->full_name);
@@ -341,6 +384,13 @@ static int rzn1_miic_setup_ports(struct rzn1_miic *miic, struct device *dev)
 			rzn1_miic_setup(port, DUPLEX_FULL, SPEED_1000, 1);
 		else
 			rzn1_miic_setup(port, DUPLEX_FULL, SPEED_1000, 0);
+	}
+
+	for (i = 0; i < nr_ports; i++) {
+		struct rzn1_miic_port *port = miic->ports[i];
+
+		if (!port)
+			continue;
 
 		/* hook into the phy */
 		phy_pre_prepare_link(port->phy_dev, port,

@@ -127,7 +127,6 @@ static int girq_probe(struct platform_device *pdev)
 
 		sprintf(prop, "gpioirq-%c", '0' + i);
 		if (!of_property_read_s32(np, prop, &p->gpio_irq[i])) {
-			irq_create_mapping(p->irq_domain, p->gic_irq[i]);
 			rzn1_pinctrl_gpioint_select(i, p->gpio_irq[i]);
 			dev_dbg(p->dev, "GIC IRQ %d mapped to GPIO IRQ %d\n",
 				p->gic_irq[i], p->gpio_irq[i]);

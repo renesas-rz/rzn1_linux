@@ -190,29 +190,44 @@ static int __init rzn1_clock_sys_init(void)
 }
 postcore_initcall(rzn1_clock_sys_init);
 
-#define USBFUNC_EPCTR		(RZN1_USB_DEV_BASE + 0x1000 + 0x10)
+#define USBF_EPCTR		(RZN1_USB_DEV_BASE + 0x1000 + 0x10)
+#define USBF_EPCTR_EPC_RST	BIT(0)
+#define USBF_EPCTR_PLL_RST	BIT(2)
+#define USBF_EPCTR_DIRPD	BIT(12)
+
+#define USBH_USBCTR		(RZN1_USB_HOST_BASE + 0x10000 + 0x834)
+#define USBH_USBCTR_USBH_RST	BIT(0)
+#define USBH_USBCTR_PCICLK_MASK	BIT(1)
+#define USBH_USBCTR_PLL_RST	BIT(2)
+#define USBH_USBCTR_DIRPD	BIT(9)
+
+#define setbits_le32(addr, bits) \
+	writel(readl((void *)(addr)) |  (bits), (void *)(addr))
+#define clrbits_le32(addr, bits) \
+	writel(readl((void *)(addr)) & ~(bits), (void *)(addr))
 
 static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 {
 	u32 val, h2mode = 0;
 	struct device_node *np;
-	void * epctr = NULL;
+	void *epctr = NULL;
+	void *usbctr = NULL;
 
 	if (operation != RZN1_CLK_HOOK_GATE_POST || value != 1)
 		return 0;
 
 	np = of_find_node_by_path("/chosen");
 	if (np && of_property_read_bool(np, "rzn1,h2mode"))
-		h2mode = (1 << RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
+		h2mode = BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
 
 	/* If the PLL is already started, we don't need to do it again anyway
 	 * and if the USB configuration is already in the right mode, we don't
 	 * need to configure that either */
 	val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
-	if (!(val & (1 << RZN1_SYSCTRL_REG_CFG_USB_DIRPD)) &&
-		(val & (1 << RZN1_SYSCTRL_REG_CFG_USB_H2MODE)) == h2mode &&
+	if (!(val & BIT(RZN1_SYSCTRL_REG_CFG_USB_DIRPD)) &&
+		(val & BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE)) == h2mode &&
 		rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT) &
-			(1 << RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)) {
+			BIT(RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)) {
 		pr_info("rzn1: USB PLL already started\n");
 		return 0;
 	}
@@ -221,33 +236,42 @@ static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 	/* trick here, the usb function clocks NEEDS to have been enabled
 	 * otherwise this register is not available. That means the h2mode
 	 * still requires the usbf clocks, at least for this part (!) */
-	epctr = ioremap(USBFUNC_EPCTR, 4);
-	/* Hold USBF in reset */
-	writel(0x7, epctr);
-	udelay(500);
+	epctr = ioremap(USBF_EPCTR, 4);
+	usbctr = ioremap(USBH_USBCTR, 4);
 
-	val &= ~(1 << RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
+	/* Hold USBF and USBH in reset */
+	writel(USBH_USBCTR_USBH_RST | USBH_USBCTR_PCICLK_MASK, usbctr);
+	writel(USBF_EPCTR_EPC_RST, epctr);
+	/* Hold USBPLL in reset */
+	setbits_le32(usbctr, USBH_USBCTR_PLL_RST);
+	udelay(2);
+
+	/* Power down USB PLL, setting any DIRPD bit will do this */
+	setbits_le32(usbctr, USBH_USBCTR_DIRPD);
+
+	/* Stop USB suspend from powering down the USB PLL */
+	/* Note: have to update these bits at the same time */
+	val |= BIT(RZN1_SYSCTRL_REG_CFG_USB_FRCLK48MOD);
+	val &= ~BIT(RZN1_SYSCTRL_REG_CFG_USB_DIRPD);
+	val &= ~BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
 	val |= h2mode;
-	val |= (1 << RZN1_SYSCTRL_REG_CFG_USB_DIRPD);
-	val |= (1 << RZN1_SYSCTRL_REG_CFG_USB_FRCLK48MOD);
 	rzn1_sysctrl_writel(val, RZN1_SYSCTRL_REG_CFG_USB);
 
-	udelay(500);
+	/* Power up USB PLL, all DIRPD bits need to be cleared */
+	clrbits_le32(epctr, USBF_EPCTR_DIRPD);
+	clrbits_le32(usbctr, USBH_USBCTR_DIRPD);
+	udelay(1000);
 
-	/* Power up USB PLL */
-	val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
-	val &= ~(1 << RZN1_SYSCTRL_REG_CFG_USB_DIRPD);
-	rzn1_sysctrl_writel(val, RZN1_SYSCTRL_REG_CFG_USB);
+	/* Release USBPLL reset, either PLL_RST bit will do this */
+	clrbits_le32(usbctr, USBH_USBCTR_PLL_RST);
 
-	mdelay(1);
-	/* Release USBF and HOST resets */
-	writel(0, epctr);
 	iounmap(epctr);
+	iounmap(usbctr);
 
 	/* Wait for USB PLL lock */
 	do {
 		val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT);
-	} while (!(val & (1 << RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)));
+	} while (!(val & BIT(RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)));
 
 	return 0;
 }

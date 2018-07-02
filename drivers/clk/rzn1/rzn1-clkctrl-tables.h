@@ -282,9 +282,9 @@ static const struct rzn1_clkdesc rzn1_clock_list[RZN1_CLK_COUNT] = {
 	[RZN1_CLK_SWITCH_ID] =
 		_CLK("clk_switch",	_BIT(76, 2), _BIT(76, 3), {0}, {0}, {0}, {0}, {0}),
 	[RZN1_HCLK_RTC_ID] =
-		_CLK("hclk_rtc",	_BIT(80, 0), {0}, {0}, {0}, {0}, {0}, {0}),
-	[RZN1_RSTN_FW_RTC_ID] =
-		_CLK("rstn_fw_rtc",	{0}, _BIT(80, 3), {0}, {0}, {0}, {0}, {0}),
+		_CLK("hclk_rtc",	_BIT(80, 0), _BIT(80, 3), {0}, _BIT(80, 2), {0}, {0}, {0}),
+	[RZN1_RST_RTC_ID] =
+		_CLK("rst_rtc",		{0}, _BIT(80, 1), {0}, {0}, {0}, {0}, {0}),
 	[RZN1_HCLK_ROM_ID] =
 		_CLK("hclk_rom",	_BIT(85, 0), _BIT(85, 1), _BIT(85, 2), {0}, _BIT(92, 0), {0}, {0}),
 	[RZN1_CLK_CM3_ID] =

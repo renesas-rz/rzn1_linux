@@ -186,19 +186,18 @@ static void dw_spi_dma_tx_done(void *arg)
 static struct dma_async_tx_descriptor *dw_spi_dma_prepare_tx(struct dw_spi *dws,
 		struct spi_transfer *xfer)
 {
-	struct dma_slave_config txconf;
+	struct dma_slave_config txconf = {
+		.direction = DMA_MEM_TO_DEV,
+		.dst_addr = dws->dma_addr,
+		.dst_maxburst = dws->fifo_len / 2,
+		.dst_addr_width = convert_dma_width(dws->dma_width),
+		.device_fc = false,
+	};
 	struct dma_async_tx_descriptor *txdesc;
 	u32 val = 0;
 
 	if (!xfer->tx_buf)
 		return NULL;
-
-	txconf.direction = DMA_MEM_TO_DEV;
-	txconf.dst_addr = dws->dma_addr;
-	txconf.dst_maxburst = dws->fifo_len / 2;
-	txconf.src_maxburst = 4;
-	txconf.dst_addr_width = convert_dma_width(dws->dma_width);
-	txconf.device_fc = false;
 
 #ifdef CONFIG_SPI_DW_RZN1
 	txconf.device_fc = true;
@@ -252,19 +251,18 @@ static void dw_spi_dma_rx_done(void *arg)
 static struct dma_async_tx_descriptor *dw_spi_dma_prepare_rx(struct dw_spi *dws,
 		struct spi_transfer *xfer)
 {
-	struct dma_slave_config rxconf;
+	struct dma_slave_config rxconf = {
+		.direction = DMA_DEV_TO_MEM,
+		.src_addr = dws->dma_addr,
+		.src_maxburst = dws->fifo_len / 2,
+		.src_addr_width = convert_dma_width(dws->dma_width),
+		.device_fc = false,
+	};
 	struct dma_async_tx_descriptor *rxdesc;
 	u32 val = 0;
 
 	if (!xfer->rx_buf)
 		return NULL;
-
-	rxconf.direction = DMA_DEV_TO_MEM;
-	rxconf.src_addr = dws->dma_addr;
-	rxconf.src_maxburst = dws->fifo_len / 2;
-	rxconf.dst_maxburst = 4;
-	rxconf.src_addr_width = convert_dma_width(dws->dma_width);
-	rxconf.device_fc = false;
 
 #ifdef CONFIG_SPI_DW_RZN1
 	rxconf.device_fc = true;

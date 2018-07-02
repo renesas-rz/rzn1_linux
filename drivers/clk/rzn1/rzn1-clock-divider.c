@@ -57,7 +57,8 @@ static long rzn1_divider_clamp_div(
 	struct rzn1_divider *clk,
 	unsigned long rate, unsigned long prate)
 {
-	long div = DIV_ROUND_UP(prate, rate);
+	/* + 1 to cope with rates that have the remainder dropped */
+	long div = DIV_ROUND_UP(prate, rate + 1);
 	int i;
 
 	if (div <= clk->min)
@@ -106,7 +107,8 @@ static int rzn1_divider_set_rate(
 	unsigned long parent_rate)
 {
 	struct rzn1_divider *clk = to_rzn1_divider(hw);
-	u32 div = DIV_ROUND_UP(parent_rate, rate);
+	/* + 1 to cope with rates that have the remainder dropped */
+	u32 div = DIV_ROUND_UP(parent_rate, rate + 1);
 
 	pr_devel("%s rate %ld parent %ld div %d\n", __func__,
 		rate, parent_rate, div);
@@ -259,7 +261,7 @@ void __init rzn1_clock_divider_init(struct device_node *node)
 			reg, mask, min, max,
 			clk_divider_flags);
 
-	if (div) {
+	if (!IS_ERR(div)) {
 		if (rzn1_read_divider_table(div, node) == 0)
 			of_clk_add_provider(node, of_clk_src_simple_get,
 					div->hw.clk);

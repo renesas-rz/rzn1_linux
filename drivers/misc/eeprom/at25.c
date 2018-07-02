@@ -104,7 +104,7 @@ fm25_id_read(struct spi_device *spi, char *buf)
 }
 
 static ssize_t
-fm25_sernum_read(struct spi_device *spi, char *buf)
+fm25_sernum_read(struct spi_device *spi, unsigned char *buf)
 {
 	u8			command = FM25_RDSN;
 	ssize_t			status;
@@ -133,7 +133,7 @@ fm25_sernum_read(struct spi_device *spi, char *buf)
 static ssize_t
 sernum_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	char			binbuf[FM25_SN_LEN];
+	unsigned char		binbuf[FM25_SN_LEN];
 	struct at25_data	*at25;
 	int			i;
 	char			*pbuf = buf;
@@ -401,7 +401,7 @@ static int at25_probe(struct spi_device *spi)
 	int			err;
 	int			sr;
 	int			addrlen;
-	char			id[FM25_ID_LEN];
+	unsigned char		id[FM25_ID_LEN];
 	const struct of_device_id *of_dev_id;
 	int			is_fram = 0;
 

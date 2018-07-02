@@ -1,0 +1,86 @@
+/*
+ * Device Tree Source for the RZN1D Demo Board
+ * This dts makes Linux control both GMACs. The Cortex M3 controls the PHYs
+ * connected to MII3,4,5. These could be controlled using the HWRTOS-GMAC and
+ * 5-Port Switch, EtherCAT or SERCOS.
+ *
+ * This dts sets up:
+ *  - GMAC1 is direct to PHY1 (connector J22)
+ *  - GMAC2 is direct to PHY2 (connector J23)
+ *  - GMAC1 is MDIO1 master
+ *  - GMAC1 performs MDIO for both PHY1 and PHY2
+ *
+ * Note: This dts sets the Mode Control to 0x0b. If you Cortex M3 code sets it
+ * to a different value, remove the mode_control line from this file.
+ *
+ * RZ/N1 Extension Board switches:
+ *  - CN15 PHY2/PHY3 MDC  Connect pins 1 and 2 (MDC1)
+ *  - CN16 PHY2/PHY3 MDIO Connect pins 1 and 2 (MDIO1)
+ * Note: PHY3 is not accessible via MDIO in this hardware configuration.
+ *
+ * Copyright (C) 2018 Renesas Electronics Europe Ltd
+ *
+ * This file is licensed under the terms of the GNU General Public License
+ * version 2.  This program is licensed "as is" without any warranty of any
+ * kind, whether express or implied.
+ */
+
+#include "rzn1d400-db.dts"
+
+&gmac0 {
+	/* Only accessible from the Ext Board */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_mdio0>, <&pins_eth0>;
+
+	phy-handle = <&phy_mii0>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		phy_mii0: ethernet-phy@8 {
+			/* Ext Board: Marvell 88E1512 PHY on J22 */
+			device_type = "ethernet-phy";
+			phy-mode = "rgmii-id";
+			reg = <8>;
+			/* Set LED0 as active low link status, LED2 as interrupt */
+			marvell,reg-init = <3 16 0 0x1010 3 18 0 0x4980>;
+			interrupt-parent = <&gpio2a>;
+			interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
+		};
+		phy_mii1: ethernet-phy@1 {
+			/* Ext Board: Marvell 88E1512 PHY on J23 */
+			device_type = "ethernet-phy";
+			phy-mode = "rgmii-id";
+			reg = <1>;
+			/* Set LED0 as active low link status, LED2 as interrupt */
+			marvell,reg-init = <3 16 0 0x1010 3 18 0 0x4980>;
+			interrupt-parent = <&gpio2a>;
+			interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+		};
+	};
+};
+
+&gmac1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_eth1>;
+
+	phy-handle = <&phy_mii1>;
+};
+
+&eth_miic {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_refclk>;
+	/* RIN Mode Control - GMAC0 on MII0, GMAC1 on MII1, rest on 5-Port Switch */
+	mode_control = <0x0b>;
+
+	mii0: eth-mii0 {
+		phy-handle = <&phy_mii0>;
+	};
+	mii1: eth-mii1 {
+		phy-handle = <&phy_mii1>;
+	};
+};

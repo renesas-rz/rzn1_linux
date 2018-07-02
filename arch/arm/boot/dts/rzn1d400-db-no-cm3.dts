@@ -23,6 +23,7 @@
 };
 
 &ethswitch {
+	u-boot,dm-pre-reloc;
 	status = "okay";
 	bus_freq = <2500000>;
 	pinctrl-names = "default";
@@ -51,6 +52,9 @@
 		micrel,led-mode = <1>;
 		interrupt-parent = <&gpio2a>;
 		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+
+		/* Enable this port during init */
+		swport-early-enable;
 	};
 	portC: phy_mii2: ethernet-phy@10 {
 		/* Ext Board: Marvell 88E1512 PHY on J24 */
