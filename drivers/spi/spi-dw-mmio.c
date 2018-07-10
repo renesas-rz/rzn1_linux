@@ -31,6 +31,7 @@ struct dw_spi_mmio {
 	struct dw_spi  dws;
 	struct clk     *clk;
 	void           *priv;
+	struct clk     *busclk;
 };
 
 #define MSCC_CPU_SYSTEM_CTRL_GENERAL_CTRL	0x24
@@ -148,6 +149,14 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	/* Optional bus clock */
+	dwsmmio->busclk = devm_clk_get_optional(&pdev->dev, "bus");
+	if (IS_ERR(dwsmmio->busclk))
+		return PTR_ERR(dwsmmio->busclk);
+	ret = clk_prepare_enable(dwsmmio->busclk);
+	if (ret)
+		goto out_clk;
+
 	dws->bus_num = pdev->id;
 
 	dws->max_freq = clk_get_rate(dwsmmio->clk);
@@ -196,6 +205,8 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 	return 0;
 
 out:
+	clk_disable_unprepare(dwsmmio->busclk);
+out_clk:
 	clk_disable_unprepare(dwsmmio->clk);
 	return ret;
 }
@@ -205,6 +216,7 @@ static int dw_spi_mmio_remove(struct platform_device *pdev)
 	struct dw_spi_mmio *dwsmmio = platform_get_drvdata(pdev);
 
 	dw_spi_remove_host(&dwsmmio->dws);
+	clk_disable_unprepare(dwsmmio->busclk);
 	clk_disable_unprepare(dwsmmio->clk);
 
 	return 0;
