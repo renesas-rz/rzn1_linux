@@ -225,6 +225,7 @@ static int dw_spi_mmio_remove(struct platform_device *pdev)
 static const struct of_device_id dw_spi_mmio_of_match[] = {
 	{ .compatible = "snps,dw-apb-ssi", },
 	{ .compatible = "mscc,ocelot-spi", .data = dw_spi_mscc_init},
+	{ .compatible = "renesas,rzn1-spi", },
 	{ /* end of table */}
 };
 MODULE_DEVICE_TABLE(of, dw_spi_mmio_of_match);
