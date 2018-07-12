@@ -326,12 +326,17 @@
 
 	/* Ext Board: Serial (SPI) F-RAM device (FM25V10-G) */
 	fram: fm25@0 {
-		compatible = "cypress,fm25";
+		compatible = "atmel,at25";
 		reg = <0>;
-		/* Reduced clock rate due to quickswitch */
+                /* Reduced clock rate due to quickswitch */
 		spi-max-frequency = <21000000>;
+		size = <131072>;
+		address-width = <24>;
+		pagesize = <4096>;
 	};
+
 };
+
 &sdio0 {
 	/* Ext Board */
 	status = "okay";

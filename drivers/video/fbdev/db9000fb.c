@@ -108,7 +108,7 @@ struct db9000fb_info {
 
 	/* raw memory addresses */
 	unsigned long		hsync_time;
-	unsigned long		cmap[16];
+	unsigned long		pseudo_palette[16];
 /* size of the one frame buffer */
 	size_t			frame_size;
 /* virtual address of palette memory */
@@ -214,6 +214,7 @@ db9000fb_setpalettereg(u_int regno, u_int red, u_int green, u_int blue, u_int
 	struct db9000fb_info *fbi = info->par;
 	u_int val;
 	u16 *pal = (u16 *)&fbi->palette[0];
+	u32 *pal32 = (u32 *)&fbi->palette[0];
 
 	if (regno >= fbi->palette_size)
 		return 1;
@@ -230,7 +231,7 @@ db9000fb_setpalettereg(u_int regno, u_int red, u_int green, u_int blue, u_int
 		blue = val;
 	}
 
-	if ((fbi->reg_cr1 & DB9000_CR1_OPS(7)) == DB9000_CR1_OPS(1)) {
+	if ((fbi->reg_cr1 & DB9000_CR1_OPS(5)) == DB9000_CR1_OPS(1)) {
 		/* RGB, 5:5:5 format */
 		val = ((red >> 1) & 0x7c00);
 		val |= ((green >> 6) & 0x03e0);
@@ -242,6 +243,9 @@ db9000fb_setpalettereg(u_int regno, u_int red, u_int green, u_int blue, u_int
 		val |= ((blue >> 11) & 0x001f);
 	}
 	pal[regno] = val;
+
+	/* Can only write to two palette entries together */
+	lcd_writel(fbi, DB9000_PALT + (regno & ~1)*2, pal32[regno/2]);
 
 	return 0;
 }
@@ -282,6 +286,14 @@ db9000fb_setcolreg(u_int regno, u_int red, u_int green, u_int blue, u_int trans,
 	case FB_VISUAL_PSEUDOCOLOR:
 		ret = db9000fb_setpalettereg(regno, red, green, blue, trans,
 				info);
+		break;
+
+	case FB_VISUAL_MONO01:
+		if (regno == 0)
+			ret = db9000fb_setpalettereg(0, 0, 0, 0, 0, info);
+		else if (regno == 1)
+			ret = db9000fb_setpalettereg(1, 0xff, 0xff, 0xff, 0xff,
+					info);
 		break;
 	}
 
@@ -554,10 +566,12 @@ static int db9000fb_set_par(struct fb_info *info)
 	info->var.yres_virtual = info->var.yres *
 		NUM_OF_FRAMEBUFFERS;
 
-	if (info->var.bits_per_pixel >= 16)
-		info->fix.visual = FB_VISUAL_TRUECOLOR;
-	else
+	if (info->var.bits_per_pixel == 1)
+		info->fix.visual = FB_VISUAL_MONO01;
+	else if (info->var.bits_per_pixel <= 8)
 		info->fix.visual = FB_VISUAL_PSEUDOCOLOR;
+	else
+		info->fix.visual = FB_VISUAL_TRUECOLOR;
 
 	info->fix.line_length = (info->var.xres_virtual *
 					info->var.bits_per_pixel) / 8;
@@ -568,13 +582,6 @@ static int db9000fb_set_par(struct fb_info *info)
 
 	/* Set (any) board control register to handle new color depth */
 	db9000fb_set_truecolor(info->fix.visual == FB_VISUAL_TRUECOLOR);
-
-	if (info->var.bits_per_pixel >= 16) {
-		if (info->cmap.len)
-			fb_dealloc_cmap(&info->cmap);
-	} else {
-		fb_alloc_cmap(&info->cmap, fbi->palette_size, 0);
-	}
 
 	db9000fb_activate_var(&info->var, fbi);
 
@@ -801,7 +808,7 @@ static void setup_parallel_timing(struct db9000fb_info *fbi,
 		(var->sync & FB_SYNC_HOR_HIGH_ACT) ? 0 : DB9000_CR1_HSP;
 	fbi->reg_cr1 |=
 		(var->sync & FB_SYNC_VERT_HIGH_ACT) ? 0 : DB9000_CR1_VSP;
-	fbi->reg_dear = lcd_readl(fbi, DB9000_DBAR) + fbi->frame_size;
+	fbi->reg_dear = lcd_readl(fbi, DB9000_DBAR) + fbi->frame_size + 8;
 }
 
 /*
@@ -951,7 +958,7 @@ static void db9000fb_enable_controller(struct db9000fb_info *fbi)
 	lcd_writel(fbi, DB9000_PCTR, fbi->reg_pctr | DB9000_PCTR_PCR);
 
 	fbi->reg_dbar = fbi->info->fix.smem_start;
-	fbi->reg_dear = fbi->reg_dbar + fbi->frame_size;
+	fbi->reg_dear = fbi->reg_dbar + fbi->frame_size + 8;
 
 	lcd_writel(fbi, DB9000_DBAR, fbi->reg_dbar);
 	lcd_writel(fbi, DB9000_DEAR, fbi->reg_dear);
@@ -997,7 +1004,7 @@ static irqreturn_t db9000fb_handle_irq(int irq, void *dev_id)
 		dbar = lcd_readl(fbi, DB9000_DBAR);
 		if (dbar != fbi->reg_dbar) {
 			fbi->reg_dbar = dbar;
-			fbi->reg_dear = dbar + fbi->frame_size;
+			fbi->reg_dear = dbar + fbi->frame_size + 8;
 			complete(&fbi->vsync_notifier);
 		}
 
@@ -1250,7 +1257,7 @@ static void *db9000fb_init_fbinfo(struct device *dev,
 	info->var.width	= info->var.xres;
 	info->var.accel_flags	= 0;
 	info->var.vmode	= FB_VMODE_NONINTERLACED;
-	info->pseudo_palette	= fbi->cmap;
+	info->pseudo_palette	= fbi->pseudo_palette;
 	info->fbops		= &db9000fb_ops;
 	info->flags		= FBINFO_DEFAULT;
 	info->node		= -1;
@@ -1473,6 +1480,9 @@ static int db9000fb_probe(struct platform_device *pdev)
 	info->var.width	= info->var.xres;
 	info->var.bits_per_pixel = bpp;
 
+	if (fb_alloc_cmap(&info->cmap, 256, 0))
+		return -ENOMEM;
+
 #if defined(CONFIG_BACKLIGHT_DB9000_LCD)
 	get_backlight_pwm_clock(np, fbi);
 #endif
@@ -1524,8 +1534,7 @@ static int db9000fb_probe(struct platform_device *pdev)
 
 err_clear_plat_data:
 	platform_set_drvdata(pdev, NULL);
-	if (info->cmap.len)
-		fb_dealloc_cmap(&info->cmap);
+	fb_dealloc_cmap(&info->cmap);
 err_free_bl:
 	clk_put(fbi->clk);
 
@@ -1544,10 +1553,7 @@ static int db9000fb_remove(struct platform_device *pdev)
 	fbi = info->par;
 	unregister_framebuffer(info);
 	db9000fb_disable_controller(fbi);
-
-	if (info->cmap.len)
-		fb_dealloc_cmap(&info->cmap);
-
+	fb_dealloc_cmap(&info->cmap);
 	clk_put(fbi->clk);
 
 	return 0;

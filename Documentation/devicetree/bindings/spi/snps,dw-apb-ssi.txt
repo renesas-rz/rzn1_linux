@@ -14,6 +14,12 @@ Optional properties:
   device.  Supported values are 2 or 4 (the default).
 - dmas : Two dma phandles, one for rx, one for tx
 - dma-names : Must be "rx", "tx"
+- renesas,rzn1-cs-mode: specify software/hardware modes for CS lines.
+  This version of the controller has a 'software mode' that allows the
+  SPI layer to control the CS line as it sees fit, instead of letting the
+  hardware toggle it -- this is necessary for talking to flash chips, eeproms
+  etc. The value is a bitfield, with bits corresponds to individual lines, and
+  '1' means 'use software CS' and 0 means 'default to hardware mode'.
 
 Child nodes as per the generic SPI binding.
 
