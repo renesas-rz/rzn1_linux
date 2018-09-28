@@ -1,0 +1,15 @@
+#
+# Mailbox
+#
+
+menu "RZ/N1 mailbox"
+
+config RZNMBOX
+    bool "RZ/N1 MBOX (Mailbox) device support"
+    default n
+    help
+      Say Y here if you want to support RZ/N1 MBOX (Mailbox) support.
+      When in doubt, say "Y".
+
+endmenu
+
