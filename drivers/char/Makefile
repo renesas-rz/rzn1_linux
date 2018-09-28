@@ -60,3 +60,4 @@ obj-$(CONFIG_POWERNV_OP_PANEL)	+= powernv-op-panel.o
 obj-$(CONFIG_ADI)		+= adi.o
 
 obj-$(CONFIG_RZNCTC)		+= ctc/
+obj-$(CONFIG_RZNMBOX)		+= mailbox/
