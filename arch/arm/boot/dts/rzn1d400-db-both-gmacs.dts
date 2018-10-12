@@ -72,8 +72,6 @@
 
 &eth_miic {
 	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pins_refclk>;
 	/* RIN Mode Control - GMAC0 on MII0, GMAC1 on MII1, rest on 5-Port Switch */
 	mode_control = <0x0b>;
 

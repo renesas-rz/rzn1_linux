@@ -7,6 +7,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -19,7 +20,7 @@
 
 #define _BIT(_r, _p) { .reg = _r, .pos = _p }
 
-#define _CLK(_n, _clk, _rst, _rdy, _midle, _scon, _mirack, _mistat ) \
+#define _CLK(_n, _clk, _rst, _rdy, _midle, _scon, _mirack, _mistat) \
 	{ .name = _n, .clock = _clk, .reset = _rst, \
 		.ready = _rdy, .masteridle = _midle }
 
@@ -29,7 +30,6 @@ static rzn1_clk_hook hook[RZN1_CLK_COUNT];
 
 void rzn1_clk_set_hook(int clkdesc_id, rzn1_clk_hook clk_hook)
 {
-	BUG_ON(clkdesc_id >= RZN1_CLK_COUNT);
 	hook[clkdesc_id] = clk_hook;
 }
 
@@ -57,13 +57,15 @@ void rzn1_clk_set_gate(int clkdesc_id, int on)
 {
 	const struct rzn1_clkdesc *g = rzn1_get_clk_desc(clkdesc_id);
 
-	BUG_ON(!rzn1_sysctrl_base());
-	BUG_ON(!g->clock.reg);
+	if (!g->clock.reg) {
+		pr_err("%s: No reg for clk ID %d\n", __func__, clkdesc_id);
+		return;
+	}
 
 	if (hook[clkdesc_id])
 		if (hook[clkdesc_id](clkdesc_id, RZN1_CLK_HOOK_GATE_PRE, on))
 			return;
-	clk_mgr_desc_set(&(g->clock), on);
+	clk_mgr_desc_set(&g->clock, on);
 
 	if (hook[clkdesc_id])
 		if (hook[clkdesc_id](clkdesc_id, RZN1_CLK_HOOK_GATE_SET, on))
@@ -81,11 +83,11 @@ void rzn1_clk_set_gate(int clkdesc_id, int on)
 	 * so that the FlexWAY bus fabric passes on the read/write requests.
 	 */
 	if (g->ready.reg)
-		clk_mgr_desc_set(&(g->ready), on);
+		clk_mgr_desc_set(&g->ready, on);
 
 	/* Clear 'Master Idle Request' bit */
 	if (g->masteridle.reg)
-		clk_mgr_desc_set(&(g->masteridle), !on);
+		clk_mgr_desc_set(&g->masteridle, !on);
 
 	if (hook[clkdesc_id])
 		hook[clkdesc_id](clkdesc_id, RZN1_CLK_HOOK_GATE_POST, on);
@@ -94,19 +96,35 @@ void rzn1_clk_set_gate(int clkdesc_id, int on)
 }
 EXPORT_SYMBOL_GPL(rzn1_clk_set_gate);
 
+static void rzn1_release_reset(int clkdesc_id)
+{
+	const struct rzn1_clkdesc *g = rzn1_get_clk_desc(clkdesc_id);
+
+	if (!g->reset.reg) {
+		pr_err("%s: No reg for clk ID %d\n", __func__, clkdesc_id);
+		return;
+	}
+
+	clk_mgr_desc_set(&g->reset, 1);
+
+	/* Hardware manual recommends 5us delay after enabling clock & reset */
+	udelay(5);
+}
+
 int rzn1_clk_is_gate_enabled(int clkdesc_id)
 {
 	const struct rzn1_clkdesc *g = rzn1_get_clk_desc(clkdesc_id);
 	u32 *reg;
 
-	BUG_ON(!rzn1_sysctrl_base());
-	BUG_ON(!g->clock.reg);
+	if (!g->clock.reg) {
+		pr_err("%s: No reg for clk ID %d\n", __func__, clkdesc_id);
+		return 0;
+	}
 
 	reg = ((u32 *)rzn1_sysctrl_base()) + g->clock.reg;
 	return !!(clk_readl(reg) & (1 << g->clock.pos));
 }
 EXPORT_SYMBOL_GPL(rzn1_clk_is_gate_enabled);
-
 
 static ssize_t sys_clk_set_rate_show(
 	struct kobject *kobj,
@@ -150,7 +168,7 @@ static ssize_t sys_clk_set_rate_store(
 	}
 	pr_devel("%s clk %s found\n", __func__, name);
 	pr_devel("%s %s current rate %lu\n", __func__, name,
-		clk_get_rate(clk));
+		 clk_get_rate(clk));
 	if (rate > 0) {
 		if (clk_set_rate(clk, rate)) {
 			pr_err("%s %s FAILED\n", __func__, name);
@@ -220,22 +238,26 @@ static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 	if (np && of_property_read_bool(np, "rzn1,h2mode"))
 		h2mode = BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
 
-	/* If the PLL is already started, we don't need to do it again anyway
+	/*
+	 * If the PLL is already started, we don't need to do it again anyway
 	 * and if the USB configuration is already in the right mode, we don't
-	 * need to configure that either */
+	 * need to configure that either.
+	 */
 	val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
 	if (!(val & BIT(RZN1_SYSCTRL_REG_CFG_USB_DIRPD)) &&
-		(val & BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE)) == h2mode &&
-		rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT) &
+	    (val & BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE)) == h2mode &&
+	     rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT) &
 			BIT(RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)) {
 		pr_info("rzn1: USB PLL already started\n");
 		return 0;
 	}
 	pr_info("rzn1: USB PLL in %s mode\n", h2mode ? "Host" : "Func");
 
-	/* trick here, the usb function clocks NEEDS to have been enabled
+	/*
+	 * Trick here, the usb function clocks NEEDS to have been enabled
 	 * otherwise this register is not available. That means the h2mode
-	 * still requires the usbf clocks, at least for this part (!) */
+	 * still requires the usbf clocks, at least for this part!
+	 */
 	epctr = ioremap(USBF_EPCTR, 4);
 	usbctr = ioremap(USBH_USBCTR, 4);
 
@@ -260,7 +282,7 @@ static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 	/* Power up USB PLL, all DIRPD bits need to be cleared */
 	clrbits_le32(epctr, USBF_EPCTR_DIRPD);
 	clrbits_le32(usbctr, USBH_USBCTR_DIRPD);
-	udelay(1000);
+	usleep_range(1000, 2000);
 
 	/* Release USBPLL reset, either PLL_RST bit will do this */
 	clrbits_le32(usbctr, USBH_USBCTR_PLL_RST);
@@ -276,16 +298,31 @@ static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 	return 0;
 }
 
+static int rzn1_eth_reset_hook(int clkdesc_id, int operation, u32 value)
+{
+	if ((operation != RZN1_CLK_HOOK_GATE_POST) || (value != 1))
+		return 0;
+
+	rzn1_release_reset(RZN1_RSTN_CLK25_SWITCHCTRL_ID);
+	rzn1_release_reset(RZN1_RSTN_ETH_SWITCHCTRL_ID);
+
+	return 0;
+}
+
 static void __init rzn1_clock_init(struct device_node *node)
 {
 	rzn1_sysctrl_init();
 
-	/* This hook will decide of the fate of the HOST vs
+	/*
+	 * This hook will decide of the fate of the HOST vs
 	 * DEVICE for the usb port -- the board designer has to enable
 	 * either of the driver in the DTS, or have the bootloader set
-	 * the appropriate DT property before starting the kernel */
+	 * the appropriate DT property before starting the kernel.
+	 */
 	rzn1_clk_set_hook(RZN1_CLK_48MHZ_PG_F_ID, rzn1_usb_clock_hook);
-}
 
+	/* This hook releases the RGMII/RMII Converter 50MHz and 25MHz resets */
+	rzn1_clk_set_hook(RZN1_HCLK_SWITCH_RG_ID, rzn1_eth_reset_hook);
+}
 
 CLK_OF_DECLARE(rzn1_clock, "renesas,rzn1-clock", rzn1_clock_init);

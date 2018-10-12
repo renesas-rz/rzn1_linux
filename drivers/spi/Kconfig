@@ -230,27 +230,14 @@ config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
 	depends on SPI_DESIGNWARE
 
-config SPI_DW_MMIO_MUXED
-	bool "Allow the driver to activate a pin state per transaction"
-	depends on SPI_DW_MMIO
-
 config SPI_DW_RZN1
-	bool "Implement Renesas RZ/N1 extra mode for Chip Select"
+	bool "Implement Renesas RZ/N1 DMA"
 	depends on SPI_DW_MMIO
 	depends on ARCH_RZN1
 	default y
 	help
-	  Renesas RZ/N1 has a 'software' mode for chip select.
-
-	  DW SPI normal implementation has 'hardware' chip select that
-	  automatically enables and resets the CS line between transactions,
-	  or when the FIFO is empty.
-	  This prevents using the IP for making full duplex transactions, like
-	  the ones used to talk to flash/eeproms and so on.
-	  RZ/N1 IP implementation has a 'software' mode that allows the driver
-	  to have more finely grained control on the CS lines, by saying 'Y'
-	  here the driver will default to the software mode, but can still
-	  be overridden by the device tree block.
+	  Renesas RZ/N1 has extra registers for DMA and the SPI Controller is
+	  designated as the flow controller.
 
 config SPI_DLN2
        tristate "Diolan DLN-2 USB SPI adapter"

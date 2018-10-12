@@ -20,7 +20,6 @@
 	compatible = "renesas,rzn1d-db", "renesas,rzn1";
 
 	chosen {
-		bootargs = "console=ttyS0,115200";
 		stdout-path = &uart0;
 		linux,stdout-path = &uart0;
 	};
@@ -83,8 +82,8 @@
 /* Map the USB pinmux to the peripheral port */
 #define usb usbh_pci
 /* ethX refers to the physical pins for each ethernet interface. Here we simply
- * place them in the hoard node, and the users of the pins will then indicate
- * are needed by adding a pinctrl-0 entry for them.
+ * place them in the hoard node to avoid errors if they are not used. Users of
+ * the pins will then indicate are needed by adding a pinctrl-0 entry for them.
  */
 #define eth0 hoard
 #define eth1 hoard
@@ -97,6 +96,25 @@
 #define lcd fb0
 
 #include "rzn1d-db-pinmux.dtsi"
+
+&pinctrl {
+	/*
+	 * Create individual nodes for the RGMII and MII reference clocks.
+	 * This allows the kernel to only enable the reference clocks that are
+	 * used by the PHYs controlled by the kernel. PHYs that are not used by
+	 * the kernel may have special pinmux setting for the reference clks.
+	 */
+	pins_rgmiirefclk: pins_rgmiirefclk {
+		renesas,rzn1-pinmux-ids = <
+			RZN1_MUX_REFCLK(60, CLK_ETH_MII_RGMII_RMII)	/* REFCLK_RGMII */
+		>;
+	};
+	pins_miirefclk: pins_miirefclk {
+		renesas,rzn1-pinmux-ids = <
+			RZN1_MUX_REFCLK(61, CLK_ETH_NAND)	/* REFCLK_MII[1] */
+		>;
+	};
+};
 
 &ddrctrl {
 	status = "okay";
@@ -225,7 +243,7 @@
 &eth_miic {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_refclk>;
+	pinctrl-0 = <&pins_rgmiirefclk>;
 
 	/*
 	 * This dts is for use Cortex M3 code, e.g. GOAL, that sets the RIN Mode
@@ -324,17 +342,18 @@
 		<&dma0 9 0 0>;
 	dma-names = "rx", "tx";
 
+	cs-gpios = <&gpio2a 31 GPIO_ACTIVE_LOW>;
+
 	/* Ext Board: Serial (SPI) F-RAM device (FM25V10-G) */
 	fram: fm25@0 {
 		compatible = "atmel,at25";
 		reg = <0>;
-                /* Reduced clock rate due to quickswitch */
-		spi-max-frequency = <21000000>;
+                /* Max freq supported by RZ/N1 */
+		spi-max-frequency = <12500000>;
 		size = <131072>;
 		address-width = <24>;
 		pagesize = <4096>;
 	};
-
 };
 
 &sdio0 {

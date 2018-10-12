@@ -27,7 +27,7 @@
 	status = "okay";
 	bus_freq = <2500000>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_mdio1>,
+	pinctrl-0 = <&pins_mdio1>, <&pins_miirefclk>,
 		<&pins_eth1>, <&pins_eth2>, <&pins_eth3>, <&pins_eth4>;
 
 	phy-reset-gpios = <&gpio1b 25 GPIO_ACTIVE_HIGH>;
