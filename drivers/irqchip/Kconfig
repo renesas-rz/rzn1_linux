@@ -244,6 +244,15 @@ config SL28CPLD_INTC
 	  Interrupt controller driver for the board management controller
 	  found on the Kontron sl28 CPLD.
 
+config RENESAS_RZN1_IRQ_MUX
+	bool "Renesas RZ/N1 GPIO IRQ multiplexer support"
+	depends on ARCH_RZN1
+	select IRQ_DOMAIN
+	help
+	  Say yes here to add support for the GPIO IRQ multiplexer embedded
+	  in Renesas RZ/N1 SoC devices. The GPIO IRQ Muxer selects which of
+	  the interrupts coming from the GPIO controllers are used.
+
 config ST_IRQCHIP
 	bool
 	select REGMAP
