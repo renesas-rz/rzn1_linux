@@ -178,6 +178,7 @@
  * @base: IO registers pointer
  * @cmd_complete: tx completion indicator
  * @clk: input reference clock
+ * @busclk: optional clock to access the controller registers
  * @slave: represent an I2C slave device
  * @cmd_err: run time hadware error code
  * @msgs: points to an array of messages currently being transferred
@@ -227,6 +228,7 @@ struct dw_i2c_dev {
 	void __iomem		*base;
 	struct completion	cmd_complete;
 	struct clk		*clk;
+	struct clk		*busclk;
 	struct reset_control	*rst;
 	struct i2c_client		*slave;
 	u32			(*get_clk_rate_khz) (struct dw_i2c_dev *dev);

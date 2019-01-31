@@ -328,6 +328,14 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 				div_u64(clk_khz * t->sda_hold_ns + 500000, 1000000);
 	}
 
+	/* Optional bus clock */
+	dev->busclk = devm_clk_get_optional(&pdev->dev, "bus");
+	if (IS_ERR(dev->busclk))
+		return PTR_ERR(dev->busclk);
+	ret = clk_prepare_enable(dev->busclk);
+	if (ret)
+		goto exit_reset;
+
 	dw_i2c_set_fifo_size(dev, pdev->id);
 
 	adap = &dev->adapter;
