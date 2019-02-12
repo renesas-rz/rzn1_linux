@@ -29,6 +29,10 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 
+/* MII Control */
+#define MII_KSZPHY_MII_CTRL			0x14
+#define KSZPHY_MII_CTRL_10B_PREAMBLE	BIT(6)
+
 /* Operation Mode Strap Override */
 #define MII_KSZPHY_OMSO				0x16
 #define KSZPHY_OMSO_FACTORY_TEST		BIT(15)
@@ -369,6 +373,8 @@ static int ksz8041_fiber_mode(struct phy_device *phydev)
 
 static int ksz8041_config_init(struct phy_device *phydev)
 {
+	struct device_node *of_node = phydev->mdio.dev.of_node;
+
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 
 	/* Limit supported and advertised modes in fiber mode */
@@ -384,6 +390,19 @@ static int ksz8041_config_init(struct phy_device *phydev)
 		linkmode_set_bit(ETHTOOL_LINK_MODE_FIBRE_BIT,
 				 phydev->advertising);
 		phydev->autoneg = AUTONEG_DISABLE;
+	}
+
+	if (of_property_read_bool(of_node, "micrel,10mbps-preamble-restore")) {
+		int ctl = phy_read(phydev, MII_KSZPHY_MII_CTRL);
+		int ret;
+
+		if (ctl < 0)
+			return ctl;
+
+		ctl |= KSZPHY_MII_CTRL_10B_PREAMBLE;
+		ret = phy_write(phydev, MII_KSZPHY_MII_CTRL, ctl);
+		if (ret < 0)
+			return ret;
 	}
 
 	return kszphy_config_init(phydev);
