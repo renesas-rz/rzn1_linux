@@ -63,14 +63,14 @@
                         (((uint32_t)(x) & (uint32_t) 0xff000000UL) >> 24)))
 /* Swap a 64 bit value */
 #define GOAL_bswap64(x)   ((uint64_t)(                                          \
-                        (((uint64_t)(x) & (uint64_t) 0x00000000000000ffUL) << 56) |  \
-                        (((uint64_t)(x) & (uint64_t) 0x000000000000ff00UL) << 40) |  \
-                        (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000UL) << 24) |  \
-                        (((uint64_t)(x) & (uint64_t) 0x00000000ff000000UL) <<  8) |  \
-                        (((uint64_t)(x) & (uint64_t) 0x000000ff00000000UL) >>  8) |  \
-                        (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000UL) >> 24) |  \
-                        (((uint64_t)(x) & (uint64_t) 0x00ff000000000000UL) >> 40) |  \
-                        (((uint64_t)(x) & (uint64_t) 0xff00000000000000UL) >> 56)))
+                        (((uint64_t)(x) & (uint64_t) 0x00000000000000ffULL) << 56) |  \
+                        (((uint64_t)(x) & (uint64_t) 0x000000000000ff00ULL) << 40) |  \
+                        (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000ULL) << 24) |  \
+                        (((uint64_t)(x) & (uint64_t) 0x00000000ff000000ULL) <<  8) |  \
+                        (((uint64_t)(x) & (uint64_t) 0x000000ff00000000ULL) >>  8) |  \
+                        (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000ULL) >> 24) |  \
+                        (((uint64_t)(x) & (uint64_t) 0x00ff000000000000ULL) >> 40) |  \
+                        (((uint64_t)(x) & (uint64_t) 0xff00000000000000ULL) >> 56)))
 
 #if (GOAL_CONFIG_TARGET_LITTLE_ENDIAN == 1) && (GOAL_CONFIG_TARGET_BIG_ENDIAN == 1)
 #  error "Target endianness cannot be both: GOAL_CONFIG_TARGET_LITTLE_ENDIAN and GOAL_CONFIG_TARGET_BIG_ENDIAN"
@@ -213,10 +213,12 @@
  *     Remark[Pa091]: operator operates on value promoted to int (with possibly
  *     unexpected result)
  */
-#define GOAL_bitSet(x, y)     (x | (1 << y))
-#define GOAL_bitClear(x, y)   (x & ~(1 << y))
-#define GOAL_maskSet(x, y)    (x | y)
-#define GOAL_maskClear(x, y)  (x & ~(unsigned int) y)
+#define GOAL_BIT_SET(x, y)      (x |= 1 << (y))
+#define GOAL_BIT_CLR(x, y)      (x &= ~(1 << (y)))
+#define GOAL_BIT_IS_SET(x, y)   (x & (1 << (y))) ? GOAL_TRUE : GOAL_FALSE
+#define GOAL_MASK_SET(x, y)     (x |= (y))
+#define GOAL_MASK_CLR(x, y)     (x &= ~(y))
+#define GOAL_MASK_IS_SET(x, y)  ((x & (y)) == (y)) ? GOAL_TRUE : GOAL_FALSE
 
 /* Halt the device if a pointer is zero */
 #define GOAL_HALT_IF_NULL(x) if (!x) { goal_targetHalt(); }
@@ -262,6 +264,7 @@ typedef uint32_t GOAL_STATUS_T;
 #define GOAL_OK_ALREADY_INITIALIZED     5       /**< already initialized */
 #define GOAL_OK_EXISTS                  6       /**< exists already */
 #define GOAL_OK_PARTIAL                 7       /**< partial transfer */
+#define GOAL_OK_AVAILABLE               8       /**< resource available */
 
 #define GOAL_ERROR                      (1u << 31) /**< general error */
 #define GOAL_ERR_NULL_POINTER           (GOAL_ERROR | 103) /**< null pointer error */
@@ -350,9 +353,21 @@ typedef uint32_t GOAL_STATUS_T;
 #define GOAL_ERR_EXISTS                 (GOAL_ERROR | 186) /**< ressource already exists */
 #define GOAL_ERR_NOT_EMPTY              (GOAL_ERROR | 187) /**< ressource not empty */
 #define GOAL_ERR_TASK_PRIORITY_GET      (GOAL_ERROR | 188) /**< task: priorty get failed */
+#define GOAL_ERR_FRAME_IN_TRANSMISSION  (GOAL_ERROR | 189) /**< eth: frame in transmission state */
+#define GOAL_ERR_IO                     (GOAL_ERROR | 190) /**< generic: I/O error */
+#define GOAL_ERR_UNALIGNED              (GOAL_ERROR | 191) /**< unaligned error */
+#define GOAL_ERR_ETH_DUPLEX_SET         (GOAL_ERROR | 192) /**< eth: error writing duplex settings */
+#define GOAL_ERR_ETH_SPEED_SET          (GOAL_ERROR | 193) /**< eth: error writing speed settings */
+#define GOAL_ERR_ETH_CAPA_GET           (GOAL_ERROR | 194) /**< eth: error reading capabilities */
+#define GOAL_ERR_MISMATCH               (GOAL_ERROR | 195) /**< mismatch */
 
 #define GOAL_RES_OK(x) (!(x & GOAL_ERROR))      /**< positive result verification */
 #define GOAL_RES_ERR(x) (x & GOAL_ERROR)        /**< negative result verification */
+#define GOAL_RES_ERR_RET(x, str) \
+    if (GOAL_RES_ERR(x)) { \
+        goal_logErr("'%s' failed with error 0x%"FMT_x32, str, x); \
+        return x; \
+    }
 
 /**< GOAL result with integrated id */
 #define GOAL_RES_ID(_id, _status) ((_id << 15) | _status)
@@ -421,48 +436,25 @@ typedef enum {
 /**< lock type */
 typedef enum {
     GOAL_LOCK_BINARY,
-    GOAL_LOCK_COUNT
+    GOAL_LOCK_COUNT,
+    GOAL_LOCK_BINARY_SOFT                       /**< binary soft-lock */
 } GOAL_LOCK_TYPE_T;
-
-
-/**< usage type */
-typedef uint32_t GOAL_USAGE_T;
 
 
 /**< id type */
 typedef uint16_t GOAL_ID_T;
 
 
-/**< usage types (see goal/goal_id.h) */
-#define GOAL_USAGE_UNKNOWN      GOAL_ID_ZERO
-#define GOAL_USAGE_MEM_POOL     GOAL_ID_MEM
-#define GOAL_USAGE_TIMER        GOAL_ID_TMR
-#define GOAL_USAGE_ETH          GOAL_ID_ETH
-#define GOAL_USAGE_ETH_RECV     GOAL_ID_ETH_RECV
-#define GOAL_USAGE_ETH_SEND     GOAL_ID_ETH_SEND
-#define GOAL_USAGE_LOG          GOAL_ID_LOG
-#define GOAL_USAGE_LOG_SYSLOG   GOAL_ID_LOG_SYSLOG
-#define GOAL_USAGE_NET          GOAL_ID_NET
-#define GOAL_USAGE_LIST         GOAL_ID_LIST
-#define GOAL_USAGE_APPL         GOAL_ID_APPL
-#define GOAL_USAGE_CTC          GOAL_ID_CTC
-#define GOAL_USAGE_RPC          GOAL_ID_RPC
-#define GOAL_USAGE_DLR          GOAL_ID_DLR
-#define GOAL_USAGE_CAN_SEND     GOAL_ID_CAN_SEND
-#define GOAL_USAGE_CAN_TXBUF    GOAL_ID_CAN_TXBUF
-#define GOAL_USAGE_CANOPEN      GOAL_ID_CANOPEN
-#define GOAL_USAGE_PTP          GOAL_ID_PTP
-#define GOAL_USAGE_MI_CTC_SPI   GOAL_ID_MI_CTC_SPI
-
-
 /** lock data */
+GOAL_TARGET_PACKED_STRUCT_PRE
 typedef GOAL_TARGET_PACKED_PRE struct {
     GOAL_BOOL_T active;                         /**< lock active flag */
     GOAL_LOCK_TYPE_T type;                      /**< lock type */
-    GOAL_USAGE_T usage;                         /**< usage indicator */
+    GOAL_ID_T usage;                            /**< usage indicator */
 
     void *pTgt;                                 /**< target data */
 } GOAL_TARGET_PACKED GOAL_LOCK_T;
+GOAL_TARGET_PACKED_STRUCT_POST
 
 /** network connection type */
 typedef enum {
@@ -788,14 +780,14 @@ static GOAL_TARGET_INLINE void GOAL_set_le64_ua(
     uint64_t x                                  /**< uint64_t value */
 )
 {
-    p8[0] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000000000ffU));
-    p8[1] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000000000ff00U) >>  8);
-    p8[2] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000U) >> 16);
-    p8[3] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000ff000000U) >> 24);
-    p8[4] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000ff00000000U) >> 32);
-    p8[5] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000U) >> 40);
-    p8[6] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00ff000000000000U) >> 48);
-    p8[7] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0xff00000000000000U) >> 56);
+    p8[0] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000000000ffULL));
+    p8[1] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000000000ff00ULL) >>  8);
+    p8[2] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000ULL) >> 16);
+    p8[3] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000ff000000ULL) >> 24);
+    p8[4] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000ff00000000ULL) >> 32);
+    p8[5] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000ULL) >> 40);
+    p8[6] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00ff000000000000ULL) >> 48);
+    p8[7] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0xff00000000000000ULL) >> 56);
 }
 
 
@@ -809,14 +801,14 @@ static GOAL_TARGET_INLINE void GOAL_set_be64_ua(
     uint64_t x                                  /**< uint64_t value */
 )
 {
-    p8[0] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0xff00000000000000U) >> 56);
-    p8[1] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00ff000000000000U) >> 48);
-    p8[2] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000U) >> 40);
-    p8[3] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000ff00000000U) >> 32);
-    p8[4] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000ff000000U) >> 24);
-    p8[5] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000U) >> 16);
-    p8[6] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000000000ff00U) >>  8);
-    p8[7] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000000000ffU));
+    p8[0] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0xff00000000000000ULL) >> 56);
+    p8[1] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00ff000000000000ULL) >> 48);
+    p8[2] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000ULL) >> 40);
+    p8[3] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000ff00000000ULL) >> 32);
+    p8[4] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000ff000000ULL) >> 24);
+    p8[5] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000ULL) >> 16);
+    p8[6] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000000000ff00ULL) >>  8);
+    p8[7] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000000000ffULL));
 }
 
 
@@ -830,12 +822,12 @@ static GOAL_TARGET_INLINE void GOAL_set_be48_ua(
     uint64_t x                                  /**< uint64_t value */
 )
 {
-    p8[0] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000U) >> 40);
-    p8[1] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000ff00000000U) >> 32);
-    p8[2] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000ff000000U) >> 24);
-    p8[3] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000U) >> 16);
-    p8[4] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000000000ff00U) >>  8);
-    p8[5] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000000000ffU));
+    p8[0] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000ff0000000000ULL) >> 40);
+    p8[1] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000ff00000000ULL) >> 32);
+    p8[2] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000ff000000ULL) >> 24);
+    p8[3] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x0000000000ff0000ULL) >> 16);
+    p8[4] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x000000000000ff00ULL) >>  8);
+    p8[5] = (uint8_t) (((uint64_t)(x) & (uint64_t) 0x00000000000000ffULL));
 }
 
 

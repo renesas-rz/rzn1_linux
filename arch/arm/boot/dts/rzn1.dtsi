@@ -210,18 +210,25 @@
 				compatible = "renesas,rzn1-clock-group";
 				clocks = <&clk_ddrc &hclk_ddrc>;
 			};
+			all_can0: all_can0 {
+				#clock-cells = <0>;
+				compatible = "renesas,rzn1-clock-group";
+				clocks = <&hclk_can0>, <&clk_48_pg_f>;
+			};
+			all_can1: all_can1 {
+				#clock-cells = <0>;
+				compatible = "renesas,rzn1-clock-group";
+				clocks = <&hclk_can1>, <&clk_48_pg_f>;
+			};
 			all_usbf: all_usbf {
 				#clock-cells = <0>;
 				compatible = "renesas,rzn1-clock-group";
-				clocks = <&hclk_usbf &hclk_usbpm &clk_48_pg_f>;
+				clocks = <&hclk_usbf &hclk_usbpm>;
 			};
-			/* USB Host Needs the USB Device clocks(!) since the EPCTR
-			 * register is in the USBF register map, and that register is
-			 * needed to start the PLL */
 			all_usbh: all_usbh {
 				#clock-cells = <0>;
 				compatible = "renesas,rzn1-clock-group";
-				clocks = <&hclk_usbh &hclk_usbpm &clk_pci_usb &all_usbf>;
+				clocks = <&hclk_usbh &hclk_usbpm &clk_pci_usb>;
 			};
 			all_lcd: all_lcd {
 				#clock-cells = <0>;
@@ -961,22 +968,6 @@
 			status = "disabled";
 		};
 
-		wdtsafe0: wdtsafe0@51003000 {
-			compatible = "renesas,rzn1-watchdogsafe";
-			reg = <0x51003000 0x400>;
-			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hclk_pinconfig>;
-			status = "disabled";
-		};
-
-		wdtsafe1: wdtsafe1@51004000 {
-			compatible = "renesas,rzn1-watchdogsafe";
-			reg = <0x51004000 0x400>;
-			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hclk_pinconfig>;
-			status = "disabled";
-		};
-
 		reset: reset@51006000 {
 			reg = <0x51006000 0x400>;
 			clocks = <&hclk_pinconfig>;
@@ -989,7 +980,7 @@
 			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
 			nxp,no-cdr;
 			nxp,no-loopback;
-			clocks = <&hclk_can0>;
+			clocks = <&all_can0>;
 			status = "disabled";
 		};
 
@@ -1000,7 +991,7 @@
 			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 			nxp,no-cdr;
 			nxp,no-loopback;
-			clocks = <&hclk_can1>;
+			clocks = <&all_can1>;
 			status = "disabled";
 		};
 

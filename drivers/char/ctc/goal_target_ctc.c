@@ -32,22 +32,34 @@
 /* not editable defines */
 /****************************************************************************/
 /**< version */
-#define CTC_KERNEL_VERSION_MAJOR 4              /**< major version of the kernel */
+#define CTC_KERNEL_VERSION_MAJOR 5              /**< major version of the kernel */
 #define CTC_KERNEL_VERSION_MINOR 1              /**< minor version of the kernel */
 
 #define CTC_WORK_QUEUE_NAME "CTC_FIFO_WQUEUE"   /**< Work queue */
 #define CTC_KERNEL_VALIDATION_TIMEOUT_MS 3000   /**< timeout till validation error */
 
+/**< The following IDs have to match with the IDs on the mailbox destination core */
+#define GOAL_TGT_MBOX_EVENT_ID_U_BOOT ((uint32_t) 0x00000001) /**< event ID of an U-boot message */
+#define GOAL_TGT_MBOX_EVENT_ID_CTC    ((uint32_t) 0x00000C2C) /**< event ID of an CTC message */
+
+#define GOAL_DTS_REG_ADDR 0                     /**< address entry on dts reg */
+#define GOAL_DTS_REG_SIZE 1                     /**< size entry on dts reg */
+
 
 /****************************************************************************/
 /* Makros */
 /****************************************************************************/
-#define CTC_GET_TIME_MS(hdlTime) ((hdlTime.tv_sec * 1000) + (hdlTime.tv_nsec / 1000000)) /**< read time in ms */
+#define CTC_GET_TIME_MS(hdlTime) ((uint64_t) ((hdlTime.tv_sec * 1000) + (hdlTime.tv_nsec / 1000000))) /**< read time in ms */
 
 
 /****************************************************************************/
 /* Local structs/enums */
 /****************************************************************************/
+typedef struct  {
+    uint32_t idEvent;                           /**< mailbox event ID for CTC */
+    GOAL_CTC_PRECIS_MSG_T data;                 /**< ctc message */
+} GOAL_CTC_MBOX_DATA_T;
+
 /**< FIFO data entry for received data */
 struct ctcDataEntry {
     uint8_t *pBuf;                              /**< pointer to data on shared memory */
@@ -56,9 +68,9 @@ struct ctcDataEntry {
 
 /**< Device structure */
 struct ctcDeviceData {
-    struct cdev chrdev;                         /**< character device */
+    struct cdev *pChrdev;                       /**< character device reference */
     int pureChanId;                             /**< pure channel ID */
-    struct device *sysDev;                      /**< sysfs device */
+    struct device *pSysDev;                     /**< sysfs device reference */
     int idxWrite;                               /**< write index */
     int idxRead;                                /**< read index */
     DECLARE_KFIFO(fifoRead, struct ctcDataEntry *, CTC_FIFO_COUNT); /**< read fifo */
@@ -77,8 +89,7 @@ typedef struct {
     struct ctcDeviceData ctcDevices[GOAL_TGT_CTC_CHN_MAX]; /**< core to core devices */
     struct workqueue_struct *pFifo_workqueue;   /**< fifo queue for work */
     unsigned int ctcMboxTimeoutMs;              /**< mailbox waiting time */
-    GOAL_CTC_PRECIS_MSG_T *pCtcMboxDataTx;      /**< transmit data for mailbox */
-    GOAL_CTC_PRECIS_MSG_T *pCtcMboxDataRx;      /**< receive data for mailbox */
+    GOAL_CTC_MBOX_DATA_T *pCtcMboxDataTx;       /**< transmit data for mailbox */
     struct task_struct *pIdStatusThread;        /**< thread ID of the status validation */
 } GOAL_CTC_DEVICE_T;
 
@@ -155,7 +166,7 @@ static int ctc_notifier(
 );
 
 static GOAL_STATUS_T goal_ctcMboxTx(
-    GOAL_CTC_PRECIS_MSG_T *pMsgPrecis           /**< precis message */
+    uint32_t *pData                             /**< mailbox message data */
 );
 
 
@@ -196,14 +207,14 @@ static int __init ctc_init(
 {
     int res;                                    /* response */
 
-    goal_logInfo("CTC: Start initialization of CTC module version %u.%u.\n", CTC_KERNEL_VERSION_MAJOR, CTC_KERNEL_VERSION_MINOR);
+    goal_logInfo("Start initialization of CTC module version %u.%u.", CTC_KERNEL_VERSION_MAJOR, CTC_KERNEL_VERSION_MINOR);
 
     /* allocate the device structure */
     pCtcDevice = kmalloc(sizeof(GOAL_CTC_DEVICE_T), GFP_ATOMIC);
     if (!pCtcDevice) {
         /* error during allocation */
-        goal_logErr("Could not allocate memory for ctc device structure.\n");
-        return -EFAULT;
+        goal_logErr("Could not allocate memory for ctc device structure.");
+        return -ENOMEM;
     }
     /* clear the memory section */
     GOAL_MEMSET(pCtcDevice, 0, sizeof(GOAL_CTC_DEVICE_T));
@@ -212,8 +223,9 @@ static int __init ctc_init(
     pCtcDevice->util.pConfig = kmalloc(sizeof(struct GOAL_CTC_CONFIG_T), GFP_ATOMIC);
     if (!pCtcDevice->util.pConfig) {
         /* error during allocation */
-        goal_logErr("Could not allocate memory for ctc config structure.\n");
-        return -EFAULT;
+        goal_logErr("Could not allocate memory for ctc config structure.");
+        ctc_cleanup();
+        return -ENOMEM;
     }
     /* clear the memory section */
     GOAL_MEMSET(pCtcDevice->util.pConfig, 0, sizeof(struct GOAL_CTC_CONFIG_T));
@@ -221,18 +233,24 @@ static int __init ctc_init(
     /* Alloc char dev regions */
     res = alloc_chrdev_region(&pCtcDevice->ctcDev, 0, GOAL_TGT_CTC_CHN_MAX, CTC_DEVICE_NAME);
     if (res) {
-        goal_logErr("Failed to alloc char devs.\n");
-        return -EFAULT;
+        goal_logErr("Failed to allocate char devices.");
+        ctc_cleanup();
+        return res;
     }
     pCtcDevice->ctcMajor = MAJOR(pCtcDevice->ctcDev);
 
     /* Create class in sysfs */
     pCtcDevice->ctcCharClass = class_create(THIS_MODULE, CTC_DEVICE_NAME);
-    goal_logInfo("Created ctc class.\n");
+    if (!pCtcDevice->ctcCharClass) {
+        goal_logErr("Failed to create ctc class.");
+        ctc_cleanup();
+        return -EFAULT;
+    }
 
     /* Create char devices */
     res = ctc_create_devices();
     if (res) {
+        goal_logErr("Failed to create ctc devices.");
         ctc_cleanup();
         return res;
     }
@@ -240,14 +258,19 @@ static int __init ctc_init(
     /* Init mailbox and interrupt handler */
     res = ctc_init_mbox();
     if (res) {
+        goal_logErr("Failed to prepare mailbox for CTC usage.");
         ctc_cleanup();
         return res;
     }
 
     /* Create the workqueue for signaling */
     pCtcDevice->pFifo_workqueue = create_workqueue(CTC_WORK_QUEUE_NAME);
-
-    goal_logInfo("CTC module version %u.%u initialized.\n", CTC_KERNEL_VERSION_MAJOR, CTC_KERNEL_VERSION_MINOR);
+    if (!pCtcDevice->pFifo_workqueue) {
+        goal_logErr("Failed to create work queue.");
+        ctc_cleanup();
+        return -EFAULT;
+    }
+    goal_logInfo("CTC module version %u.%u initialized.", CTC_KERNEL_VERSION_MAJOR, CTC_KERNEL_VERSION_MINOR);
 
     return 0;
 }
@@ -270,84 +293,94 @@ static GOAL_STATUS_T goal_ctcMemCreate(
     GOAL_CTC_CREATE_PRECIS_T *pCreatePrecis     /**< create precis information */
 )
 {
-    struct device_node *pDp;                    /* device tree node for shared memory register */
-    struct resource *pRes;                      /* resource */
-    int ret;                                    /* return value */
-    unsigned int ramSize;                       /* size of RAM */
+    struct device_node *pDpSram;                /* device tree node for mmio-sram */
+    struct device_node *pDpSramChild;           /* device tree node for ctc-sram */
+    int reg[2];                                 /* regs of mmio-sram node */
+    int regChild[2];                            /* regs of ctc-sram node */
+    int res;                                    /* result */
     void *pVirtKernMem;                         /* data buffer as virtual kernel memory */
 
     /* create only the write section */
     *pCreatePrecis = GOAL_CTC_CREATE_PRECIS_WRITE;
 
     if (NULL != pConfig->pMem) {
-        goal_logErr("Memory section is already defined.\n");
-        return GOAL_ERROR;
-    }
-
-    pRes = (struct resource *) kmalloc(sizeof(struct resource), GFP_ATOMIC);
-    if (!pRes) {
-        /* Error */
-        goal_logErr("Unable to allocate resource for shared memory initialization.\n");
+        goal_logErr("Memory section is already defined.");
         return GOAL_ERROR;
     }
 
     /* find the SRAM node */
-    pDp = of_find_compatible_node(NULL, NULL, "mmio-sram");
-    if (!pDp) {
+    pDpSram = of_find_compatible_node(NULL, NULL, "mmio-sram");
+    if (!pDpSram) {
         /* Error */
-        goal_logErr("Unable to find node c2c_sram.\n");
+        goal_logErr("Unable to find node mmio-sram.");
         /* free the allocated memory */
-        kfree(pRes);
         return GOAL_ERROR;
     }
 
-    /* read the memory size */
-    ret = of_address_to_resource(pDp, 0, pRes);
-    if (0 > ret) {
-        goal_logErr("Could not get address for node %s.\n", pDp->full_name);
-        of_node_put(pDp);
+    /* find the child ctc_sram */
+    pDpSramChild = of_get_child_by_name(pDpSram, "c2c_sram");
+    if (!pDpSramChild) {
+        /* Error */
+        goal_logErr("Unable to get mmio-sram child c2c_sram.");
         /* free the allocated memory */
-        kfree(pRes);
+        of_node_put(pDpSram);
         return GOAL_ERROR;
     }
 
-    ramSize = resource_size(pRes);
-    if (lenMin > ramSize) {
-        goal_logErr("Shared memory is too small: 0x%X byte availible 0x%X byte needed.\n", ramSize, lenMin);
-        of_node_put(pDp);
-        /* free the allocated memory */
-        kfree(pRes);
+    /* read reg value of SRAM node for evaluation address and size */
+    res = of_property_read_variable_u32_array(pDpSram, "reg", reg, 2, 0);
+    if (0 > res) {
+        /* Error */
+        goal_logErr("Unable to read CTC property.");
+        of_node_put(pDpSramChild);
+        of_node_put(pDpSram);
         return GOAL_ERROR;
     }
 
-    ctcOffsetMem = pRes->start;
+    /* read reg value of CTC node for evaluation address and size */
+    res = of_property_read_variable_u32_array(pDpSramChild, "reg", regChild, 2, 0);
+    if (0 > res) {
+        /* Error */
+        goal_logErr("Unable to read CTC property.");
+        of_node_put(pDpSramChild);
+        of_node_put(pDpSram);
+        return GOAL_ERROR;
+    }
 
-    if (!request_mem_region(pRes->start, resource_size(pRes), "ctc")) {
-        goal_logErr("Unable to request memory region\n");
-        of_node_put(pDp);
-        /* free the allocated memory */
-        kfree(pRes);
+    /* put the unused nodes */
+    of_node_put(pDpSramChild);
+    of_node_put(pDpSram);
+
+    /* validate required size of ctc sram */
+    if (lenMin > regChild[GOAL_DTS_REG_SIZE]) {
+        goal_logErr("Shared memory is too small: 0x%X byte availible 0x%X byte needed.", regChild[GOAL_DTS_REG_SIZE], lenMin);
+        return GOAL_ERROR;
+    }
+
+    /* calculate the start address of the ctc sram */
+    ctcOffsetMem = reg[GOAL_DTS_REG_ADDR] + regChild[GOAL_DTS_REG_ADDR];
+
+    /* check if the ctc sram fits into SRAM */
+    if ((ctcOffsetMem + regChild[GOAL_DTS_REG_SIZE]) > (reg[GOAL_DTS_REG_ADDR] + reg[GOAL_DTS_REG_SIZE])) {
+        goal_logErr("Invalid sram segment for ctc.");
+        return GOAL_ERROR;
+    }
+
+    if (!request_mem_region(ctcOffsetMem, regChild[GOAL_DTS_REG_SIZE], "ctc")) {
+        goal_logErr("Unable to request memory region.");
         return GOAL_ERROR;
     }
 
     /* map the SRAM */
-    pVirtKernMem = of_iomap(pDp, 0);
+    pVirtKernMem = ioremap(ctcOffsetMem, regChild[GOAL_DTS_REG_SIZE]);
     if (NULL == pVirtKernMem) {
-        goal_logErr("Unable to remap 0x%X byte\n", ramSize);
-        of_node_put(pDp);
-        /* free the allocated memory */
-        kfree(pRes);
+        goal_logErr("Unable to remap 0x%X bytes.", regChild[GOAL_DTS_REG_SIZE]);
         return GOAL_ERROR;
     }
 
     /* return the memory reference */
     pConfig->pMem = (uint8_t *) pVirtKernMem;
-    pConfig->len = ramSize;
-
-    of_node_put(pDp);
-
-    /* free the allocated memory */
-    kfree(pRes);
+    pConfig->len = regChild[GOAL_DTS_REG_SIZE];
 
     return GOAL_OK;
 }
@@ -389,12 +422,11 @@ static int ctc_create_devices(
     }
 
     /* start the kernel thread for status validation */
-    pCtcDevice->pIdStatusThread = kthread_create(goal_ctcStatusValidation, NULL, "goal_ctcStatusValidation");
+    pCtcDevice->pIdStatusThread = kthread_run(goal_ctcStatusValidation, NULL, "goal_ctcStatusValidation");
     if (IS_ERR(pCtcDevice->pIdStatusThread)) {
-        goal_logErr("Unable to start ctc validation thread.\n");
-        return PTR_ERR(pCtcDevice->pIdStatusThread);
+        goal_logErr("Unable to start ctc validation thread.");
+        return -EFAULT;
     }
-    wake_up_process(pCtcDevice->pIdStatusThread);
     return 0;
 }
 
@@ -420,23 +452,39 @@ static GOAL_STATUS_T goal_ctcPureChnInit(
 
     /* Init individual char devs and sysfs devices */
     for (idx = 0; idx < pCtcDevice->util.pConfig->pureChnCnt; idx++) {
-        cdev_init(&(pCtcDevice->ctcDevices[idx].chrdev), &ctc_fops);
-        pCtcDevice->ctcDevices[idx].chrdev.owner = THIS_MODULE;
-        pCtcDevice->ctcDevices[idx].chrdev.ops = &ctc_fops;
-        pCtcDevice->ctcDevices[idx].pureChanId = idx;
-        retVal = cdev_add(&(pCtcDevice->ctcDevices[idx].chrdev), MKDEV(pCtcDevice->ctcMajor, idx), 1);
-        if (retVal) {
-            goal_logErr("Failed to alloc char devs.\n");
-            return GOAL_ERROR;
-        } else {
-            goal_logInfo("Created device "CTC_DEVICE_FILE".\n", idx);
+        pCtcDevice->ctcDevices[idx].pChrdev = cdev_alloc();
+        if (!pCtcDevice->ctcDevices[idx].pChrdev) {
+            /* Error */
+            goal_logErr("Unable to allocate memory for char device.");
+            return -EFAULT;
         }
-        sprintf(buffer, CTC_DEVICE_FILE, idx);
-        pCtcDevice->ctcDevices[idx].sysDev = device_create(pCtcDevice->ctcCharClass, NULL, MKDEV(pCtcDevice->ctcMajor, idx), NULL, buffer);
 
+        cdev_init(pCtcDevice->ctcDevices[idx].pChrdev, &ctc_fops);
+        pCtcDevice->ctcDevices[idx].pChrdev->owner = THIS_MODULE;
+        pCtcDevice->ctcDevices[idx].pChrdev->ops = &ctc_fops;
+        retVal = cdev_add(pCtcDevice->ctcDevices[idx].pChrdev, MKDEV(pCtcDevice->ctcMajor, idx), 1);
+        if (retVal) {
+            goal_logErr("Failed to add char device "CTC_DEVICE_FILE".", idx);
+            cdev_del(pCtcDevice->ctcDevices[idx].pChrdev);
+            pCtcDevice->ctcDevices[idx].pChrdev = NULL;
+            return GOAL_ERROR;
+        }
+
+        sprintf(buffer, CTC_DEVICE_FILE, idx);
+        pCtcDevice->ctcDevices[idx].pSysDev = device_create(pCtcDevice->ctcCharClass, NULL, MKDEV(pCtcDevice->ctcMajor, idx), NULL, buffer);
+        if (!pCtcDevice->ctcDevices[idx].pSysDev) {
+            /* Error */
+            goal_logErr("Device creation "CTC_DEVICE_FILE" failed.", idx);
+            cdev_del(pCtcDevice->ctcDevices[idx].pChrdev);
+            pCtcDevice->ctcDevices[idx].pChrdev = NULL;
+            return -EFAULT;
+        } else {
+             goal_logInfo("Created device "CTC_DEVICE_FILE".", idx);
+        }
         /* Init the fifo for the mailbox messages */
         INIT_KFIFO(pCtcDevice->ctcDevices[idx].fifoRead);
 
+        pCtcDevice->ctcDevices[idx].pureChanId = idx;
         pCtcDevice->ctcDevices[idx].idxWrite = 0;
         pCtcDevice->ctcDevices[idx].idxRead = 0;
         pCtcDevice->ctcDevices[idx].pid = 0;
@@ -466,17 +514,11 @@ static int ctc_init_mbox(
 )
 {
     /* allocate the mailbox buffers */
-    pCtcDevice->pCtcMboxDataTx = (GOAL_CTC_PRECIS_MSG_T *) kmalloc(sizeof(GOAL_CTC_PRECIS_MSG_T), GFP_ATOMIC);
+    pCtcDevice->pCtcMboxDataTx = (GOAL_CTC_MBOX_DATA_T *) kmalloc(sizeof(GOAL_CTC_MBOX_DATA_T), GFP_ATOMIC);
     if (!pCtcDevice->pCtcMboxDataTx) {
         /* Error */
-        goal_logErr("Unable to allocate memory for transmitting mailbox buffer.\n");
-        return -EFAULT;
-    }
-    pCtcDevice->pCtcMboxDataRx = (GOAL_CTC_PRECIS_MSG_T *) kmalloc(sizeof(GOAL_CTC_PRECIS_MSG_T), GFP_ATOMIC);
-    if (!pCtcDevice->pCtcMboxDataRx) {
-        /* Error */
-        goal_logErr("Unable to allocate memory for receiving mailbox buffer.\n");
-        return -EFAULT;
+        goal_logErr("Unable to allocate memory for transmitting mailbox buffer.");
+        return -ENOMEM;
     }
 
     /* initialize the pl320 driver */
@@ -505,14 +547,19 @@ static int goal_ctcStatusValidation(
     getnstimeofday(&timeoutValidation);
     do {
         msleep(1);
+        if (kthread_should_stop()) {
+            goal_logWarn("CTC validation stopped.");
+            do_exit(0);
+        }
+
         res = goal_ctcUtilPureStatus(&pCtcDevice->util, 0);
         if (GOAL_RES_OK(res)) {
-            return 0;
+            do_exit(0);
         }
         getnstimeofday(&tsValidation);
     } while ((CTC_GET_TIME_MS(timeoutValidation) + CTC_KERNEL_VALIDATION_TIMEOUT_MS) > CTC_GET_TIME_MS(tsValidation));
-    goal_logWarn("CTC validation expired.\n");
-    return 0;
+    goal_logWarn("CTC validation expired.");
+    do_exit(0);
 }
 
 
@@ -525,31 +572,30 @@ static int goal_ctcStatusValidation(
  */
 static int ctc_notifier(
     struct notifier_block *pNb,                 /**< notifier block */
-    unsigned long page,                         /**< first element */
+    unsigned long idEvent,                      /**< first element is mailbox event ID */
     void *pData                                 /**< pointer to second element */
 )
 {
     GOAL_STATUS_T res;                          /* result */
     GOAL_CTC_PRECIS_T *pPrecis = NULL;          /* precis reference */
-    GOAL_CTC_PRECIS_MSG_T *pMsgPrecis;          /* pointer to precis message */
     uint32_t channelId = 0;                     /* pure channel ID */
     uint32_t offset = 0;                        /* data offset */
     uint16_t len = 0;                           /* data length */
     GOAL_CTC_PURE_FLG_T flgMsg = GOAL_CTC_PURE_FLG_INV; /* message flag */
 
-    /* The precis message data is splitted into the notifier page and pData.
-     * pData points the the second u32 element. */
-    pMsgPrecis = (GOAL_CTC_PRECIS_MSG_T *) (((uint32_t *) pData) - 1);
+    if (GOAL_TGT_MBOX_EVENT_ID_CTC != idEvent) {
+        return NOTIFY_DONE;
+    }
 
     /* validate the pure status */
     res = goal_ctcUtilPureStatus(&pCtcDevice->util, 0);
     if (GOAL_RES_ERR(res)) {
-        goal_logDbg("CTC is not ready.\n");
-        return 0;
+        goal_logDbg("CTC is not ready.");
+        return NOTIFY_STOP;
     }
 
     /* decode the mailbox message */
-    goal_ctcUtilPrecisMsgGet(pMsgPrecis, &channelId, &offset, &len, NULL, &flgMsg);
+    goal_ctcUtilPrecisMsgGet((GOAL_CTC_PRECIS_MSG_T *) pData, &channelId, &offset, &len, NULL, &flgMsg);
 
     /* check if the channel is open */
     if (pCtcDevice->ctcDevices[channelId].pid) {
@@ -558,13 +604,13 @@ static int ctc_notifier(
                 /* mailbox message with a new request received */
                 res = goal_ctcMboxMsgNew(channelId, offset, len);
                 if (GOAL_RES_OK(res)) {
-                    return 0;
+                    return NOTIFY_STOP;
                 }
-                goal_logErr("A new message could not be handled.\n");
+                goal_logErr("A new message could not be handled.");
             break;
 
             default:
-                goal_logErr("Unknown ctc message ID.\n");
+                goal_logErr("Unknown ctc message ID.");
                 break;
         }
     }
@@ -572,12 +618,12 @@ static int ctc_notifier(
     /* if an error occurs, increase the read index to avoid a full buffer. */
     res = goal_ctcUtilPrecisGet(&pPrecis, pCtcDevice->util.pRead, channelId);
     if (GOAL_RES_ERR(res)) {
-        goal_logErr("Unable to get read precis of pure channel %u.\n", channelId);
-        return 0;
+        goal_logErr("Unable to get read precis of pure channel %u.", channelId);
+        return NOTIFY_STOP;
     }
     goal_ctcUtilFifoReadInc(pPrecis, (GOAL_be32toh(pPrecis->idxRd_be32) + 1) % CTC_FIFO_COUNT, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
 
-    return 0;
+    return NOTIFY_STOP;
 }
 
 
@@ -601,12 +647,12 @@ static GOAL_STATUS_T goal_ctcMboxMsgNew(
     unsigned int ret;                           /* return value */
 
     if (pCtcDevice->util.pConfig->len <= offset) {
-        goal_logErr("The received offset is false: %u, allowed %u\n", offset, pCtcDevice->util.pConfig->len);
+        goal_logErr("The received offset is false: %u, allowed %u.", offset, pCtcDevice->util.pConfig->len);
         return GOAL_ERROR;
     }
 
     if (pCtcDevice->util.pConfig->pageSize * pCtcDevice->util.pConfig->pageCnt <= len) {
-        goal_logErr("Invalid data length: %u byte, allowed %u byte\n", len, pCtcDevice->util.pConfig->pageSize * pCtcDevice->util.pConfig->pageCnt);
+        goal_logErr("Invalid data length: %u byte, allowed %u byte.", len, pCtcDevice->util.pConfig->pageSize * pCtcDevice->util.pConfig->pageCnt);
         return GOAL_ERROR;
     }
 
@@ -614,7 +660,7 @@ static GOAL_STATUS_T goal_ctcMboxMsgNew(
     pEntry = kmalloc(sizeof(struct ctcDataEntry), GFP_ATOMIC);
     if (!pEntry) {
         /* error during allocation */
-        goal_logErr("Could not allocate memory for fifo entry.\n");
+        goal_logErr("Could not allocate memory for fifo entry.");
         return GOAL_ERROR;
     }
 
@@ -629,7 +675,7 @@ static GOAL_STATUS_T goal_ctcMboxMsgNew(
         /* add entry */
         ret = kfifo_in(pFifo, &pEntry, 1);
         if (1 != ret) {
-            goal_logErr("Could not get data from FIFO.\n");
+            goal_logErr("Could not get data from FIFO.");
             /* free the allocated memory */
             kfree(pEntry);
             return GOAL_ERROR;
@@ -641,7 +687,7 @@ static GOAL_STATUS_T goal_ctcMboxMsgNew(
 
     } else {
         /* Error handler */
-        goal_logErr("CTC mailbox FIFO is full.\n");
+        goal_logErr("CTC mailbox FIFO is full.");
     }
 
     /* free the allocated memory */
@@ -664,29 +710,48 @@ static void ctc_cleanup(
     /* unregister the notifier */
     pl320_ipc_unregister_notifier(&ctc_nb);
 
-    /* free the allocated mailbox buffer */
-    kfree(pCtcDevice->pCtcMboxDataRx);
-    kfree(pCtcDevice->pCtcMboxDataTx);
+    if (pCtcDevice) {
+        /* free the allocated mailbox buffer */
+        if (pCtcDevice->pCtcMboxDataTx) {
+            kfree(pCtcDevice->pCtcMboxDataTx);
+        }
 
-    /* Deinit individual char devs and devices */
-    for (idx = 0; idx < pCtcDevice->util.pConfig->pureChnCnt; idx++) {
-        cdev_del(&(pCtcDevice->ctcDevices[idx].chrdev));
-        device_destroy(pCtcDevice->ctcCharClass, MKDEV(pCtcDevice->ctcMajor, idx));
-        goal_logInfo("Removed device ctc_chan%u.\n", idx);
+        /* Destroy class */
+        if (pCtcDevice->ctcCharClass) {
+            /* Deinit individual char devs and devices */
+            for (idx = 0; idx < pCtcDevice->util.pConfig->pureChnCnt; idx++) {
+                mutex_destroy(&(pCtcDevice->ctcDevices[idx].mtxCtcDev));
+                if (pCtcDevice->ctcDevices[idx].pChrdev) {
+                    cdev_del(pCtcDevice->ctcDevices[idx].pChrdev);
+                    pCtcDevice->ctcDevices[idx].pChrdev = NULL;
+                }
+                if (pCtcDevice->ctcDevices[idx].pSysDev) {
+                    device_destroy(pCtcDevice->ctcCharClass, MKDEV(pCtcDevice->ctcMajor, idx));
+                    goal_logInfo("Removed device "CTC_DEVICE_FILE".", idx);
+                }
+            }
+
+            class_destroy(pCtcDevice->ctcCharClass);
+        }
+
+        /* close the thread for CTC version validation */
+        if (pCtcDevice->pIdStatusThread) {
+            kthread_stop(pCtcDevice->pIdStatusThread);
+        }
+
+        /* Unregister region */
+        if (pCtcDevice->ctcDev) {
+            unregister_chrdev_region(pCtcDevice->ctcDev, GOAL_TGT_CTC_CHN_MAX);
+        }
+
+        /* free the config and device structure */
+        if (pCtcDevice->util.pConfig) {
+            kfree(pCtcDevice->util.pConfig);
+        }
+        kfree(pCtcDevice);
     }
 
-    /* Unregister region */
-    if (0 != pCtcDevice->ctcDev) {
-        unregister_chrdev_region(pCtcDevice->ctcDev, pCtcDevice->util.pConfig->pureChnCnt);
-    }
-
-    /* Destroy class */
-    if (pCtcDevice->ctcCharClass) {
-        class_destroy(pCtcDevice->ctcCharClass);
-        goal_logInfo("Removed ctc class.\n");
-    }
-
-    goal_logInfo("CTC module released.\n");
+    goal_logInfo("CTC module released.");
 }
 
 
@@ -775,7 +840,7 @@ static ssize_t ctc_read(
     GOAL_STATUS_T res;                          /* GOAL result */
 
     if (NULL == pCtcDevice) {
-        goal_logErr("CTC device is not initialized.\n");
+        goal_logErr("CTC device is not initialized.");
         return -EACCES;
     }
 
@@ -783,19 +848,19 @@ static ssize_t ctc_read(
 
     /* check if the device is open */
     if (0 == pCtcDevice->ctcDevices[pureChanId].pid) {
-        goal_logErr("Pure channel %u is not opened\n", pureChanId);
+        goal_logErr("Pure channel %u is not opened", pureChanId);
         return -EACCES;
     }
 
     if (pCtcDevice->util.pConfig->pureChnCnt <= pureChanId) {
-        goal_logErr(CTC_DEVICE_FILE" does not exist.\n", pureChanId);
+        goal_logErr(CTC_DEVICE_FILE" does not exist.", pureChanId);
         return -EACCES;
     }
 
     /* validate the pure status */
     res = goal_ctcUtilPureStatus(&pCtcDevice->util, 0);
     if (GOAL_RES_ERR(res)) {
-        goal_logErr("CTC is not ready.\n");
+        goal_logErr("CTC is not ready.");
         return -EAGAIN;
     }
 
@@ -827,7 +892,7 @@ static ssize_t ctc_read(
                 else {
                     /* Free the buffer. */
                     kfree(pEntry);
-                    goal_logErr("Unable to copy data to user space.\n");
+                    goal_logErr("Unable to copy data to user space.");
                     return (0 > retVal) ? (retVal) : (-EMSGSIZE);
                 }
             }
@@ -838,7 +903,7 @@ static ssize_t ctc_read(
                 /* get the pure channel precis for confirming reading */
                 res = goal_ctcUtilPrecisGet(&pPrecis, pCtcDevice->util.pRead, pureChanId);
                 if (GOAL_RES_ERR(res)) {
-                    goal_logErr("Unable to get read precis of pure channel %u.\n", pureChanId);
+                    goal_logErr("Unable to get read precis of pure channel %u.", pureChanId);
                     return -EFAULT;
                 }
                 goal_ctcUtilFifoReadInc(pPrecis, (GOAL_be32toh(pPrecis->idxRd_be32) + 1) % CTC_FIFO_COUNT, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
@@ -876,7 +941,7 @@ static ssize_t ctc_write(
     GOAL_STATUS_T res;                          /* result */
 
     if (NULL == pCtcDevice) {
-        goal_logErr("CTC device is not initialized.\n");
+        goal_logErr("CTC device is not initialized.");
         return -EACCES;
     }
 
@@ -884,27 +949,27 @@ static ssize_t ctc_write(
 
     /* check if the channel is open */
     if (0 == pCtcDevice->ctcDevices[pureChanId].pid) {
-        goal_logErr("Pure channel %u is not opened\n", pureChanId);
+        goal_logErr("Pure channel %u is not opened.", pureChanId);
         return -EACCES;
     }
 
     /* evaluate the pure channel ID */
     if (pCtcDevice->util.pConfig->pureChnCnt <= pureChanId) {
-        goal_logErr(CTC_DEVICE_FILE" does not exist.\n", pureChanId);
+        goal_logErr(CTC_DEVICE_FILE" does not exist.", pureChanId);
         return -EACCES;
     }
 
     /* validate the pure status */
     res = goal_ctcUtilPureStatus(&pCtcDevice->util, 0);
     if (GOAL_RES_ERR(res)) {
-        goal_logErr("CTC is not ready.\n");
+        goal_logErr("CTC is not ready.");
         return -EAGAIN;
     }
 
     /* get the pure channel precis */
     res = goal_ctcUtilPrecisGet(&pPrecis, pCtcDevice->util.pWrite, pureChanId);
     if (GOAL_RES_ERR(res)) {
-        goal_logErr("Unable to get precis of pure channel %u.\n", pureChanId);
+        goal_logErr("Unable to get precis of pure channel %u.", pureChanId);
         return -EACCES;
     }
 
@@ -915,7 +980,7 @@ static ssize_t ctc_write(
     if (GOAL_RES_ERR(res)) {
         /* ERROR */
         mutex_unlock(&(pCtcDevice->ctcDevices[pureChanId].mtxCtcDev));
-        goal_logErr("Unable to allocate %u bytes on pure channel %u.\n", (uint16_t) len, pureChanId);
+        goal_logErr("Unable to allocate %u bytes on pure channel %u.", (uint16_t) len, pureChanId);
         return -EACCES;
     }
 
@@ -925,7 +990,7 @@ static ssize_t ctc_write(
     if (copy_from_user(pDst, pBuf, len)) {
         /* ERROR */
         mutex_unlock(&(pCtcDevice->ctcDevices[pureChanId].mtxCtcDev));
-        goal_logErr("CTC: %s - Unable to copy user data.\n", __func__);
+        goal_logErr("CTC: %s - Unable to copy user data.", __func__);
         return -EACCES;
     }
 
@@ -933,7 +998,8 @@ static ssize_t ctc_write(
     goal_ctcUtilFifoWriteAdd(pPrecis, &dataAlloc, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
 
     /* prepare the mailbox message for the PL320 driver */
-    goal_ctcUtilPrecisMsgSet(pCtcDevice->pCtcMboxDataTx,
+    pCtcDevice->pCtcMboxDataTx->idEvent = GOAL_TGT_MBOX_EVENT_ID_CTC;
+    goal_ctcUtilPrecisMsgSet(&pCtcDevice->pCtcMboxDataTx->data,
                             pureChanId,
                             (uint32_t) ((uint8_t *) pDst - (uint8_t *) pCtcDevice->util.pConfig->pMem),
                             dataAlloc.len,
@@ -941,15 +1007,16 @@ static ssize_t ctc_write(
                             GOAL_CTC_PURE_FLG_REQ);
 
     /* send the mailbox message */
-    res = goal_ctcMboxTx(pCtcDevice->pCtcMboxDataTx);
+    res = goal_ctcMboxTx((uint32_t *) pCtcDevice->pCtcMboxDataTx);
     if (GOAL_RES_ERR(res)) {
-        goal_logErr("Unable to send a mailbox message request [Err: 0x%x].\n", res);
+        goal_logErr("Unable to send a mailbox message request [Err: 0x%x].", res);
         /* unable to send the message, avoid a buffer gab by increasing the read index */
         goal_ctcUtilFifoReadInc(pPrecis, (GOAL_be32toh(pPrecis->idxRd_be32) + 1) % CTC_FIFO_COUNT, GOAL_CTC_CHN_PURE_STATUS_NOT_CYCLIC);
         mutex_unlock(&(pCtcDevice->ctcDevices[pureChanId].mtxCtcDev));
         return -EACCES;
     }
 
+    /* release the lock */
     mutex_unlock(&(pCtcDevice->ctcDevices[pureChanId].mtxCtcDev));
     return (ssize_t) len;
 }
@@ -964,7 +1031,7 @@ static ssize_t ctc_write(
  * @retval other failure
  */
 static GOAL_STATUS_T goal_ctcMboxTx(
-    GOAL_CTC_PRECIS_MSG_T *pMsgPrecis           /**< precis message */
+    uint32_t *pData                             /**< mailbox message data */
 )
 {
     struct timespec mboxTimeout;                /* mailbox timeout */
@@ -977,7 +1044,7 @@ static GOAL_STATUS_T goal_ctcMboxTx(
     getnstimeofday(&mboxTimeout);
     do {
         /* send the mailbox message */
-        resMbox = pl320_ipc_transmit((uint32_t *) pMsgPrecis);
+        resMbox = pl320_ipc_transmit(pData);
         getnstimeofday(&mboxTime);
         if (0 == resMbox) {
             return GOAL_OK;
@@ -1007,18 +1074,18 @@ long ctc_ioctl(
     pureChanId = MINOR(pFile->f_inode->i_rdev);
 
     if (NULL == pCtcDevice) {
-        goal_logErr("CTC device is not initialized.\n");
+        goal_logErr("CTC device is not initialized.");
         return 0;
     }
 
     if (pCtcDevice->util.pConfig->pureChnCnt <= pureChanId) {
-        goal_logErr(CTC_DEVICE_FILE" does not exist.\n", pureChanId);
+        goal_logErr(CTC_DEVICE_FILE" does not exist.", pureChanId);
         return 0;
     }
 
     /* check if the channel is open */
     if (0 == pCtcDevice->ctcDevices[pureChanId].pid) {
-        goal_logErr("Pure channel %u is not opened\n", pureChanId);
+        goal_logErr("Pure channel %u is not opened.", pureChanId);
         return -EACCES;
     }
 
@@ -1048,7 +1115,7 @@ long ctc_ioctl(
                     if (!ret) {
                         /* evaluate the number of priorities */
                         if (pCtcDevice->util.pConfig->prioCnt > pCtcDevice->util.pConfig->pureChnCnt) {
-                            goal_logErr("Invalid number of ctc priorities.\n");
+                            goal_logErr("Invalid number of ctc priorities.");
                             ret = -EFAULT;
                         }
                     }
@@ -1061,11 +1128,21 @@ long ctc_ioctl(
             break;
 
         case CTC_IOCTL_MBOX_SEND:
+            /* lock the channel */
+            mutex_lock(&(pCtcDevice->ctcDevices[pureChanId].mtxCtcDev));
+
+            /* prepare the mailbox message for the PL320 driver */
+            pCtcDevice->pCtcMboxDataTx->idEvent = GOAL_TGT_MBOX_EVENT_ID_CTC;
+            copy_from_user(&pCtcDevice->pCtcMboxDataTx->data, (GOAL_CTC_PRECIS_MSG_T __user *) arg, sizeof(GOAL_CTC_PRECIS_MSG_T));
+
             /* send a mailbox message */
-            res = goal_ctcMboxTx((GOAL_CTC_PRECIS_MSG_T __user *) arg);
+            res = goal_ctcMboxTx((uint32_t *) pCtcDevice->pCtcMboxDataTx);
             if (GOAL_RES_ERR(res)) {
                 ret = -EFAULT;
             }
+
+            /* release the lock */
+            mutex_unlock(&(pCtcDevice->ctcDevices[pureChanId].mtxCtcDev));
             break;
 
         case CTC_IOCTL_USED_BY_USER:

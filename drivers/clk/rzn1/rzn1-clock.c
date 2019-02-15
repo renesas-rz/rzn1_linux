@@ -224,12 +224,20 @@ postcore_initcall(rzn1_clock_sys_init);
 #define clrbits_le32(addr, bits) \
 	writel(readl((void *)(addr)) & ~(bits), (void *)(addr))
 
+static int rzn1_usb_pll_locked(void)
+{
+	return (rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT) &
+			BIT(RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK));
+}
+
 static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 {
 	u32 val, h2mode = 0;
 	struct device_node *np;
 	void *epctr = NULL;
 	void *usbctr = NULL;
+	int hclk_usbh;
+	int hclk_usbf;
 
 	if (operation != RZN1_CLK_HOOK_GATE_POST || value != 1)
 		return 0;
@@ -239,25 +247,27 @@ static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 		h2mode = BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
 
 	/*
-	 * If the PLL is already started, we don't need to do it again anyway
-	 * and if the USB configuration is already in the right mode, we don't
-	 * need to configure that either.
+	 * If the PLL is already started and the USB configuration is in the
+	 * right mode, we don't need to do anything
 	 */
 	val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
-	if (!(val & BIT(RZN1_SYSCTRL_REG_CFG_USB_DIRPD)) &&
-	    (val & BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE)) == h2mode &&
-	     rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT) &
-			BIT(RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)) {
+	if (((val & BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE)) == h2mode) &&
+	    rzn1_usb_pll_locked()) {
 		pr_info("rzn1: USB PLL already started\n");
 		return 0;
 	}
-	pr_info("rzn1: USB PLL in %s mode\n", h2mode ? "Host" : "Func");
+	pr_info("rzn1: USB in %s mode\n", h2mode ? "2xHost" : "1xFunc+1xHost");
 
 	/*
-	 * Trick here, the usb function clocks NEEDS to have been enabled
-	 * otherwise this register is not available. That means the h2mode
-	 * still requires the usbf clocks, at least for this part!
+	 * When enabling the USB PLL, we need to put both the USB Host and
+	 * Function parts into reset. That means we have to enable the clocks to
+	 * access these parts, and put the clocks back how they were afterwards.
 	 */
+	hclk_usbh = rzn1_clk_is_gate_enabled(RZN1_HCLK_USBH_ID);
+	hclk_usbf = rzn1_clk_is_gate_enabled(RZN1_HCLK_USBF_ID);
+	rzn1_clk_set_gate(RZN1_HCLK_USBH_ID, 1);
+	rzn1_clk_set_gate(RZN1_HCLK_USBF_ID, 1);
+
 	epctr = ioremap(USBF_EPCTR, 4);
 	usbctr = ioremap(USBH_USBCTR, 4);
 
@@ -290,10 +300,12 @@ static int rzn1_usb_clock_hook(int clkdesc_id, int operation, u32 value)
 	iounmap(epctr);
 	iounmap(usbctr);
 
-	/* Wait for USB PLL lock */
-	do {
-		val = rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT);
-	} while (!(val & BIT(RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)));
+	/* Reinstate the USB Func and Host clocks */
+	rzn1_clk_set_gate(RZN1_HCLK_USBH_ID, hclk_usbh);
+	rzn1_clk_set_gate(RZN1_HCLK_USBF_ID, hclk_usbf);
+
+	while (!rzn1_usb_pll_locked())
+		;
 
 	return 0;
 }
@@ -318,7 +330,9 @@ static void __init rzn1_clock_init(struct device_node *node)
 	 * DEVICE for the usb port -- the board designer has to enable
 	 * either of the driver in the DTS, or have the bootloader set
 	 * the appropriate DT property before starting the kernel.
+	 * It also ensures the USB PLL is enabled.
 	 */
+	rzn1_clk_set_hook(RZN1_HCLK_USBPM_ID, rzn1_usb_clock_hook);
 	rzn1_clk_set_hook(RZN1_CLK_48MHZ_PG_F_ID, rzn1_usb_clock_hook);
 
 	/* This hook releases the RGMII/RMII Converter 50MHz and 25MHz resets */

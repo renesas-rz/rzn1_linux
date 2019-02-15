@@ -20,12 +20,18 @@
 	compatible = "renesas,rzn1d-db", "renesas,rzn1";
 
 	chosen {
-		stdout-path = &uart0;
-		linux,stdout-path = &uart0;
+		stdout-path = "serial0:115200n8";
 	};
-	c2c_sram@200f8000 {
+	sram@20000000 {
 		compatible = "mmio-sram";
-		reg = <0x200f8000 0x8000>;
+		reg = <0x20000000 0x100000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		c2c_sram@f8000 {
+			compatible = "ctc-sram";
+			reg = <0xf8000 0x8000>;
+		};
 	};
 	hoard: cat: nmi: rmii {
 		#address-cells = <1>;
@@ -96,25 +102,6 @@
 #define lcd fb0
 
 #include "rzn1d-db-pinmux.dtsi"
-
-&pinctrl {
-	/*
-	 * Create individual nodes for the RGMII and MII reference clocks.
-	 * This allows the kernel to only enable the reference clocks that are
-	 * used by the PHYs controlled by the kernel. PHYs that are not used by
-	 * the kernel may have special pinmux setting for the reference clks.
-	 */
-	pins_rgmiirefclk: pins_rgmiirefclk {
-		renesas,rzn1-pinmux-ids = <
-			RZN1_MUX_REFCLK(60, CLK_ETH_MII_RGMII_RMII)	/* REFCLK_RGMII */
-		>;
-	};
-	pins_miirefclk: pins_miirefclk {
-		renesas,rzn1-pinmux-ids = <
-			RZN1_MUX_REFCLK(61, CLK_ETH_NAND)	/* REFCLK_MII[1] */
-		>;
-	};
-};
 
 &ddrctrl {
 	status = "okay";
@@ -243,7 +230,7 @@
 &eth_miic {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_rgmiirefclk>;
+	pinctrl-0 = <&pins_refclk_rgmii>;
 
 	/*
 	 * This dts is for use Cortex M3 code, e.g. GOAL, that sets the RIN Mode

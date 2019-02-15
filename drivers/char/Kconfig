@@ -592,5 +592,6 @@ source "drivers/char/xillybus/Kconfig"
 
 source "drivers/char/ctc/Kconfig"
 
+source "drivers/char/mailbox/Kconfig"
 endmenu
 

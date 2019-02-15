@@ -84,6 +84,8 @@
 
 #define GOAL_TARGET_PACKED_PRE
 #define GOAL_TARGET_PACKED __attribute__ ((packed))
+#define GOAL_TARGET_PACKED_STRUCT_PRE
+#define GOAL_TARGET_PACKED_STRUCT_POST
 
 #define GOAL_TARGET_INLINE __inline__
 
@@ -95,10 +97,10 @@
 #  define GOAL_MEMCMP memcmp
 #endif
 
-#  define goal_logDbg(fmt, args...) printk(KERN_DEBUG "[AC_D|%s:%d] " fmt, __func__, __LINE__, ## args)
-#  define goal_logInfo(fmt, args...) printk(KERN_INFO "[AC_I|%s:%d] " fmt, __func__, __LINE__, ## args)
-#  define goal_logWarn(fmt, args...) printk(KERN_WARNING "[AC_W|%s:%d] " fmt, __func__, __LINE__, ## args)
-#  define goal_logErr(fmt, args...)  printk(KERN_NOTICE "[AC_E|%s:%d] " fmt, __func__, __LINE__, ## args)
+#  define goal_logDbg(fmt, args...) printk(KERN_DEBUG "[AC_D|%s:%d] " fmt, __func__, __LINE__, ## args); printk(KERN_CONT "\n")
+#  define goal_logInfo(fmt, args...) printk(KERN_INFO "[AC_I|%s:%d] " fmt, __func__, __LINE__, ## args); printk(KERN_CONT "\n")
+#  define goal_logWarn(fmt, args...) printk(KERN_WARNING "[AC_W|%s:%d] " fmt, __func__, __LINE__, ## args); printk(KERN_CONT "\n")
+#  define goal_logErr(fmt, args...)  printk(KERN_NOTICE "[AC_E|%s:%d] " fmt, __func__, __LINE__, ## args); printk(KERN_CONT "\n")
 
 
 /****************************************************************************/
