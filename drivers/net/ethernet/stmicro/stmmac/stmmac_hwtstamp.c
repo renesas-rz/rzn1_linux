@@ -30,7 +30,7 @@
 
 static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
 {
-	writel(data, ioaddr + PTP_TCR);
+	gmac_writel(data, ioaddr + PTP_TCR);
 }
 
 static u32 stmmac_config_sub_second_increment(void __iomem *ioaddr,
@@ -38,6 +38,7 @@ static u32 stmmac_config_sub_second_increment(void __iomem *ioaddr,
 {
 	u32 value = readl(ioaddr + PTP_TCR);
 	unsigned long data;
+	u32 reg_value;
 
 	/* For GMAC3.x, 4.x versions, convert the ptp_clock to nano second
 	 *	formula = (1/ptp_clock) * 1000000000
@@ -54,10 +55,11 @@ static u32 stmmac_config_sub_second_increment(void __iomem *ioaddr,
 
 	data &= PTP_SSIR_SSINC_MASK;
 
+	reg_value = data;
 	if (gmac4)
-		data = data << GMAC4_PTP_SSIR_SSINC_SHIFT;
+		reg_value <<= GMAC4_PTP_SSIR_SSINC_SHIFT;
 
-	writel(data, ioaddr + PTP_SSIR);
+	gmac_writel(reg_value, ioaddr + PTP_SSIR);
 
 	return data;
 }
@@ -67,12 +69,12 @@ static int stmmac_init_systime(void __iomem *ioaddr, u32 sec, u32 nsec)
 	int limit;
 	u32 value;
 
-	writel(sec, ioaddr + PTP_STSUR);
-	writel(nsec, ioaddr + PTP_STNSUR);
+	gmac_writel(sec, ioaddr + PTP_STSUR);
+	gmac_writel(nsec, ioaddr + PTP_STNSUR);
 	/* issue command to initialize the system time value */
 	value = readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSINIT;
-	writel(value, ioaddr + PTP_TCR);
+	gmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present system time initialize to complete */
 	limit = 10;
@@ -92,11 +94,11 @@ static int stmmac_config_addend(void __iomem *ioaddr, u32 addend)
 	u32 value;
 	int limit;
 
-	writel(addend, ioaddr + PTP_TAR);
+	gmac_writel(addend, ioaddr + PTP_TAR);
 	/* issue command to update the addend value */
 	value = readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSADDREG;
-	writel(value, ioaddr + PTP_TCR);
+	gmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present addend update to complete */
 	limit = 10;
@@ -132,14 +134,14 @@ static int stmmac_adjust_systime(void __iomem *ioaddr, u32 sec, u32 nsec,
 			nsec = (PTP_BINARY_ROLLOVER_MODE - nsec);
 	}
 
-	writel(sec, ioaddr + PTP_STSUR);
+	gmac_writel(sec, ioaddr + PTP_STSUR);
 	value = (add_sub << PTP_STNSUR_ADDSUB_SHIFT) | nsec;
-	writel(value, ioaddr + PTP_STNSUR);
+	gmac_writel(value, ioaddr + PTP_STNSUR);
 
 	/* issue command to initialize the system time value */
 	value = readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSUPDT;
-	writel(value, ioaddr + PTP_TCR);
+	gmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present system time adjust/update to complete */
 	limit = 10;

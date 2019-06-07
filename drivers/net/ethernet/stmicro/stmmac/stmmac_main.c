@@ -759,7 +759,7 @@ static void stmmac_adjust_link(struct net_device *dev)
 			priv->speed = phydev->speed;
 		}
 
-		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
+		gmac_writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
 
 		if (!priv->oldlink) {
 			new_state = 1;

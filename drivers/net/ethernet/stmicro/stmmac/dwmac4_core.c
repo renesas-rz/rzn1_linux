@@ -47,7 +47,7 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
 		}
 	}
 
-	writel(value, ioaddr + GMAC_CONFIG);
+	gmac_writel(value, ioaddr + GMAC_CONFIG);
 
 	/* Mask GMAC interrupts */
 	value = GMAC_INT_DEFAULT_MASK;
@@ -56,7 +56,7 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
 	if (hw->pcs)
 		value |= GMAC_PCS_IRQ_DEFAULT;
 
-	writel(value, ioaddr + GMAC_INT_EN);
+	gmac_writel(value, ioaddr + GMAC_INT_EN);
 }
 
 static void dwmac4_dump_regs(struct mac_device_info *hw)
@@ -84,7 +84,7 @@ static int dwmac4_rx_ipc_enable(struct mac_device_info *hw)
 	else
 		value &= ~GMAC_CONFIG_IPC;
 
-	writel(value, ioaddr + GMAC_CONFIG);
+	gmac_writel(value, ioaddr + GMAC_CONFIG);
 
 	value = readl(ioaddr + GMAC_CONFIG);
 
@@ -105,7 +105,7 @@ static void dwmac4_pmt(struct mac_device_info *hw, unsigned long mode)
 		pmt |= power_down | global_unicast | wake_up_frame_en;
 	}
 
-	writel(pmt, ioaddr + GMAC_PMT);
+	gmac_writel(pmt, ioaddr + GMAC_PMT);
 }
 
 static void dwmac4_set_umac_addr(struct mac_device_info *hw,
@@ -141,8 +141,8 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
 		/* Set the 64 bits of the HASH tab. To be updated if taller
 		 * hash table is used
 		 */
-		writel(0xffffffff, ioaddr + GMAC_HASH_TAB_0_31);
-		writel(0xffffffff, ioaddr + GMAC_HASH_TAB_32_63);
+		gmac_writel(0xffffffff, ioaddr + GMAC_HASH_TAB_0_31);
+		gmac_writel(0xffffffff, ioaddr + GMAC_HASH_TAB_32_63);
 	} else if (!netdev_mc_empty(dev)) {
 		u32 mc_filter[2];
 		struct netdev_hw_addr *ha;
@@ -163,8 +163,8 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
 			 */
 			mc_filter[bit_nr >> 5] |= (1 << (bit_nr & 0x1F));
 		}
-		writel(mc_filter[0], ioaddr + GMAC_HASH_TAB_0_31);
-		writel(mc_filter[1], ioaddr + GMAC_HASH_TAB_32_63);
+		gmac_writel(mc_filter[0], ioaddr + GMAC_HASH_TAB_0_31);
+		gmac_writel(mc_filter[1], ioaddr + GMAC_HASH_TAB_32_63);
 	}
 
 	/* Handle multiple unicast addresses */
@@ -183,7 +183,7 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
 		}
 	}
 
-	writel(value, ioaddr + GMAC_PACKET_FILTER);
+	gmac_writel(value, ioaddr + GMAC_PACKET_FILTER);
 }
 
 static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
@@ -197,17 +197,17 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 	if (fc & FLOW_RX) {
 		pr_debug("\tReceive Flow-Control ON\n");
 		flow |= GMAC_RX_FLOW_CTRL_RFE;
-		writel(flow, ioaddr + GMAC_RX_FLOW_CTRL);
+		gmac_writel(flow, ioaddr + GMAC_RX_FLOW_CTRL);
 	}
 	if (fc & FLOW_TX) {
 		pr_debug("\tTransmit Flow-Control ON\n");
 		flow |= GMAC_TX_FLOW_CTRL_TFE;
-		writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
+		gmac_writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
 
 		if (duplex) {
 			pr_debug("\tduplex mode: PAUSE %d\n", pause_time);
 			flow |= (pause_time << GMAC_TX_FLOW_CTRL_PT_SHIFT);
-			writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
+			gmac_writel(flow, ioaddr + GMAC_QX_TX_FLOW_CTRL(channel));
 		}
 	}
 }
@@ -292,7 +292,7 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
 
 		if (status & MTL_RX_OVERFLOW_INT) {
 			/*  clear Interrupt */
-			writel(status | MTL_RX_OVERFLOW_INT,
+			gmac_writel(status | MTL_RX_OVERFLOW_INT,
 			       ioaddr + MTL_CHAN_INT_CTRL(STMMAC_CHAN0));
 			ret = CORE_IRQ_MTL_RX_OVERFLOW;
 		}

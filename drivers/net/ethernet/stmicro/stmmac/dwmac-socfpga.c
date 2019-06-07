@@ -92,7 +92,7 @@ static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed)
 		default:
 			return;
 		}
-		writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
+		gmac_writel(val, splitter_base + EMAC_SPLITTER_CTRL_REG);
 	}
 
 	if (tse_pcs_base && sgmii_adapter_base)

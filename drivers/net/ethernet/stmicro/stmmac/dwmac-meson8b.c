@@ -80,7 +80,7 @@ static void meson8b_dwmac_mask_bits(struct meson8b_dwmac *dwmac, u32 reg,
 	data &= ~mask;
 	data |= (value & mask);
 
-	writel(data, dwmac->regs + reg);
+	gmac_writel(data, dwmac->regs + reg);
 }
 
 static int meson8b_init_clk(struct meson8b_dwmac *dwmac)

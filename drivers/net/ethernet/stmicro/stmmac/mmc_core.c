@@ -24,7 +24,10 @@
 
 #include <linux/kernel.h>
 #include <linux/io.h>
+#include <linux/rzn1-a5psw-workaround.h>
 #include "mmc.h"
+
+#define gmac_writel rzn1_a5psw_workaround_writel
 
 /* MAC Management Counters register offset */
 
@@ -138,7 +141,7 @@ void dwmac_mmc_ctrl(void __iomem *mmcaddr, unsigned int mode)
 
 	value |= (mode & 0x3F);
 
-	writel(value, mmcaddr + MMC_CNTRL);
+	gmac_writel(value, mmcaddr + MMC_CNTRL);
 
 	pr_debug("stmmac: MMC ctrl register (offset 0x%x): 0x%08x\n",
 		 MMC_CNTRL, value);
@@ -147,9 +150,9 @@ void dwmac_mmc_ctrl(void __iomem *mmcaddr, unsigned int mode)
 /* To mask all all interrupts.*/
 void dwmac_mmc_intr_all_mask(void __iomem *mmcaddr)
 {
-	writel(MMC_DEFAULT_MASK, mmcaddr + MMC_RX_INTR_MASK);
-	writel(MMC_DEFAULT_MASK, mmcaddr + MMC_TX_INTR_MASK);
-	writel(MMC_DEFAULT_MASK, mmcaddr + MMC_RX_IPC_INTR_MASK);
+	gmac_writel(MMC_DEFAULT_MASK, mmcaddr + MMC_RX_INTR_MASK);
+	gmac_writel(MMC_DEFAULT_MASK, mmcaddr + MMC_TX_INTR_MASK);
+	gmac_writel(MMC_DEFAULT_MASK, mmcaddr + MMC_RX_IPC_INTR_MASK);
 }
 
 /* This reads the MAC core counters (if actaully supported).

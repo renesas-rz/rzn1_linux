@@ -90,7 +90,7 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 		return -EBUSY;
 
-	writel(regValue, priv->ioaddr + mii_address);
+	gmac_writel(regValue, priv->ioaddr + mii_address);
 
 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 		return -EBUSY;
@@ -128,8 +128,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
 		return -EBUSY;
 
 	/* Set the MII address register to write */
-	writel(phydata, priv->ioaddr + mii_data);
-	writel(value, priv->ioaddr + mii_address);
+	gmac_writel(phydata, priv->ioaddr + mii_data);
+	gmac_writel(value, priv->ioaddr + mii_address);
 
 	/* Wait until any existing MII operation is complete */
 	return stmmac_mdio_busy_wait(priv->ioaddr, mii_address);
@@ -161,7 +161,7 @@ static int stmmac_mdio_read_gmac4(struct mii_bus *bus, int phyaddr, int phyreg)
 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 		return -EBUSY;
 
-	writel(value, priv->ioaddr + mii_address);
+	gmac_writel(value, priv->ioaddr + mii_address);
 
 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 		return -EBUSY;
@@ -202,8 +202,8 @@ static int stmmac_mdio_write_gmac4(struct mii_bus *bus, int phyaddr, int phyreg,
 		return -EBUSY;
 
 	/* Set the MII address register to write */
-	writel(phydata, priv->ioaddr + mii_data);
-	writel(value, priv->ioaddr + mii_address);
+	gmac_writel(phydata, priv->ioaddr + mii_data);
+	gmac_writel(value, priv->ioaddr + mii_address);
 
 	/* Wait until any existing MII operation is complete */
 	return stmmac_mdio_busy_wait(priv->ioaddr, mii_address);
@@ -270,7 +270,7 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	 * if needed.
 	 */
 	if (!priv->plat->has_gmac4)
-		writel(0, priv->ioaddr + mii_address);
+		gmac_writel(0, priv->ioaddr + mii_address);
 #endif
 	return 0;
 }

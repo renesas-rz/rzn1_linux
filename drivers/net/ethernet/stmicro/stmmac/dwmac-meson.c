@@ -44,7 +44,7 @@ static void meson6_dwmac_fix_mac_speed(void *priv, unsigned int speed)
 		break;
 	}
 
-	writel(val, dwmac->reg);
+	gmac_writel(val, dwmac->reg);
 }
 
 static int meson6_dwmac_probe(struct platform_device *pdev)

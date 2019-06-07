@@ -68,7 +68,7 @@ static void dwmac4_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 		}
 	}
 
-	writel(value, ioaddr + DMA_SYS_BUS_MODE);
+	gmac_writel(value, ioaddr + DMA_SYS_BUS_MODE);
 }
 
 static void dwmac4_dma_init_channel(void __iomem *ioaddr, int pbl,
@@ -82,21 +82,21 @@ static void dwmac4_dma_init_channel(void __iomem *ioaddr, int pbl,
 	 */
 	value = readl(ioaddr + DMA_CHAN_CONTROL(channel));
 	value = value | DMA_BUS_MODE_PBL;
-	writel(value, ioaddr + DMA_CHAN_CONTROL(channel));
+	gmac_writel(value, ioaddr + DMA_CHAN_CONTROL(channel));
 
 	value = readl(ioaddr + DMA_CHAN_TX_CONTROL(channel));
 	value = value | (pbl << DMA_BUS_MODE_PBL_SHIFT);
-	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(channel));
+	gmac_writel(value, ioaddr + DMA_CHAN_TX_CONTROL(channel));
 
 	value = readl(ioaddr + DMA_CHAN_RX_CONTROL(channel));
 	value = value | (pbl << DMA_BUS_MODE_RPBL_SHIFT);
-	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(channel));
+	gmac_writel(value, ioaddr + DMA_CHAN_RX_CONTROL(channel));
 
 	/* Mask interrupts by writing to CSR7 */
-	writel(DMA_CHAN_INTR_DEFAULT_MASK, ioaddr + DMA_CHAN_INTR_ENA(channel));
+	gmac_writel(DMA_CHAN_INTR_DEFAULT_MASK, ioaddr + DMA_CHAN_INTR_ENA(channel));
 
-	writel(dma_tx_phy, ioaddr + DMA_CHAN_TX_BASE_ADDR(channel));
-	writel(dma_rx_phy, ioaddr + DMA_CHAN_RX_BASE_ADDR(channel));
+	gmac_writel(dma_tx_phy, ioaddr + DMA_CHAN_TX_BASE_ADDR(channel));
+	gmac_writel(dma_rx_phy, ioaddr + DMA_CHAN_RX_BASE_ADDR(channel));
 }
 
 static void dwmac4_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
@@ -116,7 +116,7 @@ static void dwmac4_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 	if (aal)
 		value |= DMA_SYS_BUS_AAL;
 
-	writel(value, ioaddr + DMA_SYS_BUS_MODE);
+	gmac_writel(value, ioaddr + DMA_SYS_BUS_MODE);
 
 	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
 		dwmac4_dma_init_channel(ioaddr, pbl, dma_tx, dma_rx, i);
@@ -176,7 +176,7 @@ static void dwmac4_rx_watchdog(void __iomem *ioaddr, u32 riwt)
 	int i;
 
 	for (i = 0; i < DMA_CHANNEL_NB_MAX; i++)
-		writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(i));
+		gmac_writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(i));
 }
 
 static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
@@ -216,7 +216,7 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
 			mtl_tx_op |= MTL_OP_MODE_TTC_512;
 	}
 
-	writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
+	gmac_writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
 
 	mtl_rx_op = readl(ioaddr + MTL_CHAN_RX_OP_MODE(channel));
 
@@ -237,11 +237,11 @@ static void dwmac4_dma_chan_op_mode(void __iomem *ioaddr, int txmode,
 			mtl_rx_op |= MTL_OP_MODE_RTC_128;
 	}
 
-	writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(channel));
+	gmac_writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(channel));
 
 	/* Enable MTL RX overflow */
 	mtl_rx_int = readl(ioaddr + MTL_CHAN_INT_CTRL(channel));
-	writel(mtl_rx_int | MTL_RX_OVERFLOW_INT_EN,
+	gmac_writel(mtl_rx_int | MTL_RX_OVERFLOW_INT_EN,
 	       ioaddr + MTL_CHAN_INT_CTRL(channel));
 }
 
@@ -301,12 +301,12 @@ static void dwmac4_enable_tso(void __iomem *ioaddr, bool en, u32 chan)
 	if (en) {
 		/* enable TSO */
 		value = readl(ioaddr + DMA_CHAN_TX_CONTROL(chan));
-		writel(value | DMA_CONTROL_TSE,
+		gmac_writel(value | DMA_CONTROL_TSE,
 		       ioaddr + DMA_CHAN_TX_CONTROL(chan));
 	} else {
 		/* enable TSO */
 		value = readl(ioaddr + DMA_CHAN_TX_CONTROL(chan));
-		writel(value & ~DMA_CONTROL_TSE,
+		gmac_writel(value & ~DMA_CONTROL_TSE,
 		       ioaddr + DMA_CHAN_TX_CONTROL(chan));
 	}
 }

@@ -145,4 +145,7 @@ struct plat_stmmacenet_data {
 	int mac_port_sel_speed;
 	int do_not_reset;
 };
+
+#define gmac_writel rzn1_a5psw_workaround_writel
+
 #endif
