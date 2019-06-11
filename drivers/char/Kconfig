@@ -167,6 +167,8 @@ config POWERNV_OP_PANEL
 
 	  If unsure, say M here to build it as a module called powernv-op-panel.
 
+source "drivers/char/acontis/Kconfig"
+
 source "drivers/char/ipmi/Kconfig"
 
 config DS1620
