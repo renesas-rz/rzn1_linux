@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/db9000,lcdc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: DB9000 LCD Controller
+
+maintainers:
+    - Gareth Williams <gareth.williams.jx@renesas.com>
+
+description: |
+  This is an LCD controller by Digital Blocks available for SoCs. The DB9000
+  controller reads from the framebuffer to display on a single RGB interface.
+  Output may be formatted in RGB or BGR. The driver also supports the PWM
+  chip that is included with the controller.
+
+properties:
+
+  compatible:
+    enum:
+      - digital-blocks,drm-db9000 # DB9000 generic device
+      - digital-blocks,drm-rzn1   # RZ/N1 specific register set
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 3
+    description: |
+      A phandle and clock-specifier pair to be used as a reference clock
+      internal bus clock and pixel clock.
+
+  clock-names:
+    items:
+      - const: lcd_eclk
+      - const: ahb
+      - const: lcd_pclk
+
+  port:
+    type: object
+    description: The panel endpoint connection.
+
+  bits-per-pixel:
+    description: |
+            Default is 24. This selects the number of bits used to represent
+            a single pixel within the controller.
+    $ref: "/schemas/types.yaml#/definitions/uint32"
+    enum: [8, 16, 24, 32]
+
+  bus-width:
+    description: |
+       The width of the interface to the LCD panel. This is needed
+       if the bits-per-pixel property is set to 16 or less, but the board
+       connects to a 24-bit panel. In which case, the controller will shift the
+       16-bit data to the most significant bits of the device. Default is 24.
+
+  "#pwm-cells":
+    const: 2
+
+  backlight-pwm-clock:
+    description: |
+      If using the DB9000 PWM output for a backlight, this specifies the PWM
+      output clock divider required.
+
+required:
+  - compatible
+  - "#pwm-cells"
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/r9a06g032-sysctrl.h>
+    drm@53004000 {
+      compatible = "digital-blocks,drm-rzn1", "digital-blocks,drm-db9000";
+      reg = <0x53004000 0x1000>;
+      interrupts = <10 97 120>;
+      clocks = <&sysctrl R9A06G032_CLK_SLCD>,
+               <&sysctrl R9A06G032_HCLK_LCD>,
+               <&sysctrl R9A06G032_HCLK_PG_I>;
+      clock-names = "lcd_eclk", "ahb", "lcd_pclk";
+      bus-width = <24>;
+      pinctrl-0 = <&pins_lcd>;
+      #pwm-cells = <2>;
+
+      port {
+        drm_point: endpoint@0 {
+          remote-endpoint = <&display_in>;
+        };
+      };
+    };
+...
