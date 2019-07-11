@@ -195,4 +195,7 @@ struct plat_stmmacenet_data {
 	int has_xgmac;
 	int do_not_reset;
 };
+
+#define gmac_writel rzn1_a5psw_workaround_writel
+
 #endif

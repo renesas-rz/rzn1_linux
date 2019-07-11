@@ -30,6 +30,7 @@
 #define STMMAC_VLAN_TAG_USED
 #include <linux/if_vlan.h>
 #endif
+#include <linux/rzn1-a5psw-workaround.h>
 
 #include "descs.h"
 #include "hwif.h"

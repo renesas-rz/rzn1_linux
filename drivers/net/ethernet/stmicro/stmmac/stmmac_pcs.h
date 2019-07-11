@@ -92,7 +92,7 @@ static inline void dwmac_rane(void __iomem *ioaddr, u32 reg, bool restart)
 	if (restart)
 		value |= GMAC_AN_CTRL_RAN;
 
-	writel(value, ioaddr + GMAC_AN_CTRL(reg));
+	gmac_writel(value, ioaddr + GMAC_AN_CTRL(reg));
 }
 
 /**
@@ -124,7 +124,7 @@ static inline void dwmac_ctrl_ane(void __iomem *ioaddr, u32 reg, bool ane,
 	if (loopback)
 		value |= GMAC_AN_CTRL_ELE;
 
-	writel(value, ioaddr + GMAC_AN_CTRL(reg));
+	gmac_writel(value, ioaddr + GMAC_AN_CTRL(reg));
 }
 
 /**

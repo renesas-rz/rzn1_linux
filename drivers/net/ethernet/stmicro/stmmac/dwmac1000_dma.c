@@ -77,7 +77,7 @@ static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 		}
 	}
 
-	writel(value, ioaddr + DMA_AXI_BUS_MODE);
+	gmac_writel(value, ioaddr + DMA_AXI_BUS_MODE);
 }
 
 static void dwmac1000_dma_init(void __iomem *ioaddr,
@@ -114,10 +114,10 @@ static void dwmac1000_dma_init(void __iomem *ioaddr,
 	if (dma_cfg->aal)
 		value |= DMA_BUS_MODE_AAL;
 
-	writel(value, ioaddr + DMA_BUS_MODE);
+	gmac_writel(value, ioaddr + DMA_BUS_MODE);
 
 	/* Mask interrupts by writing to CSR7 */
-	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+	gmac_writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
 }
 
 static void dwmac1000_dma_init_rx(void __iomem *ioaddr,
@@ -125,7 +125,7 @@ static void dwmac1000_dma_init_rx(void __iomem *ioaddr,
 				  u32 dma_rx_phy, u32 chan)
 {
 	/* RX descriptor base address list must be written into DMA CSR3 */
-	writel(dma_rx_phy, ioaddr + DMA_RCV_BASE_ADDR);
+	gmac_writel(dma_rx_phy, ioaddr + DMA_RCV_BASE_ADDR);
 }
 
 static void dwmac1000_dma_init_tx(void __iomem *ioaddr,
@@ -133,7 +133,7 @@ static void dwmac1000_dma_init_tx(void __iomem *ioaddr,
 				  u32 dma_tx_phy, u32 chan)
 {
 	/* TX descriptor base address list must be written into DMA CSR4 */
-	writel(dma_tx_phy, ioaddr + DMA_TX_BASE_ADDR);
+	gmac_writel(dma_tx_phy, ioaddr + DMA_TX_BASE_ADDR);
 }
 
 static u32 dwmac1000_configure_fc(u32 csr6, int rxfifosz)
@@ -182,7 +182,7 @@ static void dwmac1000_dma_operation_mode_rx(void __iomem *ioaddr, int mode,
 	/* Configure flow control based on rx fifo size */
 	csr6 = dwmac1000_configure_fc(csr6, fifosz);
 
-	writel(csr6, ioaddr + DMA_CONTROL);
+	gmac_writel(csr6, ioaddr + DMA_CONTROL);
 }
 
 static void dwmac1000_dma_operation_mode_tx(void __iomem *ioaddr, int mode,
@@ -215,7 +215,7 @@ static void dwmac1000_dma_operation_mode_tx(void __iomem *ioaddr, int mode,
 			csr6 |= DMA_CONTROL_TTC_256;
 	}
 
-	writel(csr6, ioaddr + DMA_CONTROL);
+	gmac_writel(csr6, ioaddr + DMA_CONTROL);
 }
 
 static void dwmac1000_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)
@@ -267,7 +267,7 @@ static void dwmac1000_get_hw_feature(void __iomem *ioaddr,
 static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt,
 				  u32 number_chan)
 {
-	writel(riwt, ioaddr + DMA_RX_WATCHDOG);
+	gmac_writel(riwt, ioaddr + DMA_RX_WATCHDOG);
 }
 
 const struct stmmac_dma_ops dwmac1000_dma_ops = {

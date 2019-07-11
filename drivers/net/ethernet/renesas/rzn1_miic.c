@@ -41,6 +41,7 @@
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/rzn1-a5psw-workaround.h>
 
 /* RIN Ether Accessory (Switch Control) regs */
 #define PRCMD			0x0		/* Ethernet Protect */
@@ -91,13 +92,19 @@ struct rzn1_miic {
 	struct rzn1_miic_port *ports[MIIC_MAX_NR_PORTS];
 };
 
+#define miic_writel rzn1_a5psw_workaround_writel
+
 static void rin_writel_to_prot_bits(struct rzn1_miic *miic, u32 reg, u32 new_bits, u32 mask)
 {
 	int tries = 5;
 	u32 val;
 	u8 rand;
 
+	unsigned long flags;
+
 	do {
+		rzn1_a5psw_workaround_lock(&flags);
+
 		/* RIN: Enable protection */
 		writel(0x0000, miic->regs + PRCMD);
 
@@ -115,6 +122,8 @@ static void rin_writel_to_prot_bits(struct rzn1_miic *miic, u32 reg, u32 new_bit
 
 		/* Enable protection */
 		writel(0x0000, miic->regs + PRCMD);
+
+		rzn1_a5psw_workaround_unlock(&flags);
 
 		/* Has the write taken place? */
 		val = readl(miic->regs + reg);
@@ -187,7 +196,7 @@ static void rzn1_miic_adjust(struct rzn1_miic_port *port, int duplex, int speed)
 	if (duplex == DUPLEX_FULL)
 		val |= CONVCTRL_FULL_DUPLEX;
 
-	writel(val, miic->regs + CONVCTRL(port->phy_nr));
+	miic_writel(val, miic->regs + CONVCTRL(port->phy_nr));
 
 	port->speed = speed;
 	port->duplex = duplex;
@@ -239,7 +248,7 @@ static void rzn1_miic_setup(struct rzn1_miic_port *port, int duplex, int speed,
 	if (port->phy_if == PHY_INTERFACE_MODE_RMII && rmii_ref_clk_out)
 		val |= CONVCTRL_REF_CLK_OUT;
 
-	writel(val, miic->regs + CONVCTRL(port->phy_nr));
+	miic_writel(val, miic->regs + CONVCTRL(port->phy_nr));
 
 	rzn1_miic_adjust(port, duplex, speed);
 
