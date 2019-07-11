@@ -273,4 +273,7 @@ struct plat_stmmacenet_data {
 	bool sph_disable;
 	int do_not_reset;
 };
+
+#define gmac_writel rzn1_a5psw_workaround_writel
+
 #endif

@@ -53,7 +53,7 @@ static int stmmac_xgmac2_c45_format(struct stmmac_priv *priv, int phyaddr,
 	/* Set port as Clause 45 */
 	tmp = readl(priv->ioaddr + XGMAC_MDIO_C22P);
 	tmp &= ~BIT(phyaddr);
-	writel(tmp, priv->ioaddr + XGMAC_MDIO_C22P);
+	gmac_writel(tmp, priv->ioaddr + XGMAC_MDIO_C22P);
 
 	*hw_addr = (phyaddr << MII_XGMAC_PA_SHIFT) | (phyreg & 0xffff);
 	*hw_addr |= (phyreg >> MII_DEVADDR_C45_SHIFT) << MII_XGMAC_DA_SHIFT;
@@ -73,7 +73,7 @@ static int stmmac_xgmac2_c22_format(struct stmmac_priv *priv, int phyaddr,
 	tmp = readl(priv->ioaddr + XGMAC_MDIO_C22P);
 	tmp &= ~MII_XGMAC_C22P_MASK;
 	tmp |= BIT(phyaddr);
-	writel(tmp, priv->ioaddr + XGMAC_MDIO_C22P);
+	gmac_writel(tmp, priv->ioaddr + XGMAC_MDIO_C22P);
 
 	*hw_addr = (phyaddr << MII_XGMAC_PA_SHIFT) | (phyreg & 0x1f);
 	return 0;
@@ -127,8 +127,8 @@ static int stmmac_xgmac2_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
 	}
 
 	/* Set the MII address register to read */
-	writel(addr, priv->ioaddr + mii_address);
-	writel(value, priv->ioaddr + mii_data);
+	gmac_writel(addr, priv->ioaddr + mii_address);
+	gmac_writel(value, priv->ioaddr + mii_data);
 
 	/* Wait until any existing MII operation is complete */
 	if (readl_poll_timeout(priv->ioaddr + mii_data, tmp,
@@ -196,8 +196,8 @@ static int stmmac_xgmac2_mdio_write(struct mii_bus *bus, int phyaddr,
 	}
 
 	/* Set the MII address register to write */
-	writel(addr, priv->ioaddr + mii_address);
-	writel(value, priv->ioaddr + mii_data);
+	gmac_writel(addr, priv->ioaddr + mii_address);
+	gmac_writel(value, priv->ioaddr + mii_data);
 
 	/* Wait until any existing MII operation is complete */
 	ret = readl_poll_timeout(priv->ioaddr + mii_data, tmp,
@@ -260,8 +260,8 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
 		goto err_disable_clks;
 	}
 
-	writel(data, priv->ioaddr + mii_data);
-	writel(value, priv->ioaddr + mii_address);
+	gmac_writel(data, priv->ioaddr + mii_data);
+	gmac_writel(value, priv->ioaddr + mii_address);
 
 	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
 			       100, 10000)) {
@@ -333,8 +333,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
 	}
 
 	/* Set the MII address register to write */
-	writel(data, priv->ioaddr + mii_data);
-	writel(value, priv->ioaddr + mii_address);
+	gmac_writel(data, priv->ioaddr + mii_data);
+	gmac_writel(value, priv->ioaddr + mii_address);
 
 	/* Wait until any existing MII operation is complete */
 	ret = readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
@@ -392,7 +392,7 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	 * if needed.
 	 */
 	if (!priv->plat->has_gmac4)
-		writel(0, priv->ioaddr + mii_address);
+		gmac_writel(0, priv->ioaddr + mii_address);
 #endif
 	return 0;
 }

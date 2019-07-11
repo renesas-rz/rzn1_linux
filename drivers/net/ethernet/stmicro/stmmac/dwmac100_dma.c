@@ -22,11 +22,11 @@ static void dwmac100_dma_init(void __iomem *ioaddr,
 			      struct stmmac_dma_cfg *dma_cfg, int atds)
 {
 	/* Enable Application Access by writing to DMA CSR0 */
-	writel(DMA_BUS_MODE_DEFAULT | (dma_cfg->pbl << DMA_BUS_MODE_PBL_SHIFT),
+	gmac_writel(DMA_BUS_MODE_DEFAULT | (dma_cfg->pbl << DMA_BUS_MODE_PBL_SHIFT),
 	       ioaddr + DMA_BUS_MODE);
 
 	/* Mask interrupts by writing to CSR7 */
-	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+	gmac_writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
 }
 
 static void dwmac100_dma_init_rx(void __iomem *ioaddr,
@@ -34,7 +34,7 @@ static void dwmac100_dma_init_rx(void __iomem *ioaddr,
 				 dma_addr_t dma_rx_phy, u32 chan)
 {
 	/* RX descriptor base addr lists must be written into DMA CSR3 */
-	writel(lower_32_bits(dma_rx_phy), ioaddr + DMA_RCV_BASE_ADDR);
+	gmac_writel(lower_32_bits(dma_rx_phy), ioaddr + DMA_RCV_BASE_ADDR);
 }
 
 static void dwmac100_dma_init_tx(void __iomem *ioaddr,
@@ -42,7 +42,7 @@ static void dwmac100_dma_init_tx(void __iomem *ioaddr,
 				 dma_addr_t dma_tx_phy, u32 chan)
 {
 	/* TX descriptor base addr lists must be written into DMA CSR4 */
-	writel(lower_32_bits(dma_tx_phy), ioaddr + DMA_TX_BASE_ADDR);
+	gmac_writel(lower_32_bits(dma_tx_phy), ioaddr + DMA_TX_BASE_ADDR);
 }
 
 /* Store and Forward capability is not used at all.
@@ -62,7 +62,7 @@ static void dwmac100_dma_operation_mode_tx(void __iomem *ioaddr, int mode,
 	else
 		csr6 |= DMA_CONTROL_TTC_128;
 
-	writel(csr6, ioaddr + DMA_CONTROL);
+	gmac_writel(csr6, ioaddr + DMA_CONTROL);
 }
 
 static void dwmac100_dump_dma_regs(void __iomem *ioaddr, u32 *reg_space)

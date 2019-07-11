@@ -31,6 +31,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/if_vlan.h>
+#include <linux/rzn1-a5psw-workaround.h>
 
 #define DRV_NAME			"mt5pt_switch"
 #define DRV_VERSION			"0.2"
@@ -114,17 +115,40 @@ struct mt5pt_switch {
 	struct mt5pt_switch_port *ports[PHY_MAX_ADDR];
 };
 
+#ifdef CONFIG_RZN1_A5PSW_WORKAROUND
+static void __iomem *ethsw_base_addr;
+#define MT5PT_DUMMY_ADDR 0x5000
+#endif
+
+static inline void ethsw_writel(unsigned int value, volatile void __iomem *addr)
+{
+#ifdef CONFIG_RZN1_A5PSW_WORKAROUND
+	unsigned long flags;
+
+	rzn1_a5psw_workaround_lock(&flags);
+
+	/* Additional dummy write */
+	writel(value, ethsw_base_addr + MT5PT_DUMMY_ADDR);
+#endif
+
+	writel(value, addr);
+
+#ifdef CONFIG_RZN1_A5PSW_WORKAROUND
+	rzn1_a5psw_workaround_unlock(&flags);
+#endif
+}
+
 static void mt5pt_switch_port_enable(void __iomem *regs, int port_nr)
 {
 	u32 val;
 
 	val = readl(regs + MT5PT_AUTH_PORT(port_nr));
 	val |= MT5PT_AUTH_PORT_AUTHORIZED;
-	writel(val, regs + MT5PT_AUTH_PORT(port_nr));
+	ethsw_writel(val, regs + MT5PT_AUTH_PORT(port_nr));
 
 	val = readl(regs + MT5PT_PORT_ENA);
 	val |= MT5PT_PORT_ENA_TXRX(port_nr);
-	writel(val, regs + MT5PT_PORT_ENA);
+	ethsw_writel(val, regs + MT5PT_PORT_ENA);
 }
 
 /* Remove entries for forwarding lookup table associated to port_nr.
@@ -139,7 +163,7 @@ static void mt5pt_switch_fdb_flush_port(void __iomem *regs, int port_nr)
 	val |= MT5PT_LK_DELETE_PORT | MT5PT_LK_WAIT_COMPLETE;
 	val = (val & MT5PT_LK_PORT_NUM_MASK) |
 		MT5PT_LK_PORT_NUM(port_nr);
-	writel(val, regs + MT5PT_LK_ADDR_CTRL);
+	ethsw_writel(val, regs + MT5PT_LK_ADDR_CTRL);
 }
 
 static void mt5pt_switch_port_disable_rxtx(void __iomem *regs, int port_nr)
@@ -148,7 +172,7 @@ static void mt5pt_switch_port_disable_rxtx(void __iomem *regs, int port_nr)
 
 	val = readl(regs + MT5PT_PORT_ENA);
 	val &= ~MT5PT_PORT_ENA_TXRX(port_nr);
-	writel(val, regs + MT5PT_PORT_ENA);
+	ethsw_writel(val, regs + MT5PT_PORT_ENA);
 }
 
 static void mt5pt_switch_port_disable(void __iomem *regs, int port_nr)
@@ -159,7 +183,7 @@ static void mt5pt_switch_port_disable(void __iomem *regs, int port_nr)
 
 static void mt5pt_switch_port_mtu(void __iomem *regs, int port_nr, int mtu)
 {
-	writel(mtu + FRM_LENGTH_EXTRA, regs + MT5PT_MAC_FRM_LENGTH(port_nr));
+	ethsw_writel(mtu + FRM_LENGTH_EXTRA, regs + MT5PT_MAC_FRM_LENGTH(port_nr));
 }
 
 static void mt5pt_switch_handle_link_change(struct net_device *dev)
@@ -175,7 +199,7 @@ static void mt5pt_switch_handle_link_change(struct net_device *dev)
 		if (phydev->speed == SPEED_1000)
 			val |= MT5PT_CC_MBPS_1000;
 		val |= MT5PT_CC_CNTL_FRM_ENA;
-		writel(val, mt5pt->regs + MT5PT_MAC_CMD_CFG(port->port_nr));
+		ethsw_writel(val, mt5pt->regs + MT5PT_MAC_CMD_CFG(port->port_nr));
 
 		port->speed = phydev->speed;
 	}
@@ -202,7 +226,7 @@ static void mt5pt_switch_setup_mdio(struct mt5pt_switch *mt5pt)
 	val |= 0 << 2;
 
 	dev_info(mt5pt->dev, "MDIO clk is %d Hz\n", mdio_in / (2 * div + 1));
-	writel(val, mt5pt->regs + MDIO_CFG_STATUS);
+	ethsw_writel(val, mt5pt->regs + MDIO_CFG_STATUS);
 }
 
 static int mt5pt_switch_reset(struct mii_bus *bus)
@@ -261,7 +285,7 @@ static int mt5pt_switch_read(struct mii_bus *bus, int phy_id, int phy_reg)
 	if (ret < 0)
 		return ret;
 
-	writel(reg, mt5pt->regs + MDIO_COMMAND);
+	ethsw_writel(reg, mt5pt->regs + MDIO_COMMAND);
 
 	ret = mt5pt_switch_wait_for_mdio(mt5pt);
 	if (ret < 0)
@@ -292,8 +316,8 @@ static int mt5pt_switch_write(struct mii_bus *bus, int phy_id,
 	if (ret < 0)
 		return ret;
 
-	writel(reg, mt5pt->regs + MDIO_COMMAND);
-	writel(phy_data, mt5pt->regs + MDIO_DATA);
+	ethsw_writel(reg, mt5pt->regs + MDIO_COMMAND);
+	ethsw_writel(phy_data, mt5pt->regs + MDIO_DATA);
 
 	/* Wait for it to complete */
 	return mt5pt_switch_wait_for_mdio(mt5pt);

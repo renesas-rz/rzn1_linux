@@ -19,7 +19,7 @@ int dwmac_dma_reset(void __iomem *ioaddr)
 
 	/* DMA SW reset */
 	value |= DMA_BUS_MODE_SFT_RESET;
-	writel(value, ioaddr + DMA_BUS_MODE);
+	gmac_writel(value, ioaddr + DMA_BUS_MODE);
 
 	return readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
 				 !(value & DMA_BUS_MODE_SFT_RESET),
@@ -29,7 +29,7 @@ int dwmac_dma_reset(void __iomem *ioaddr)
 /* CSR1 enables the transmit DMA to check for new descriptor */
 void dwmac_enable_dma_transmission(void __iomem *ioaddr)
 {
-	writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
+	gmac_writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
 }
 
 void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
@@ -41,7 +41,7 @@ void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 	if (tx)
 		value |= DMA_INTR_DEFAULT_TX;
 
-	writel(value, ioaddr + DMA_INTR_ENA);
+	gmac_writel(value, ioaddr + DMA_INTR_ENA);
 }
 
 void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
@@ -53,35 +53,35 @@ void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 	if (tx)
 		value &= ~DMA_INTR_DEFAULT_TX;
 
-	writel(value, ioaddr + DMA_INTR_ENA);
+	gmac_writel(value, ioaddr + DMA_INTR_ENA);
 }
 
 void dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value |= DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CONTROL);
+	gmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 void dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value &= ~DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CONTROL);
+	gmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 void dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value |= DMA_CONTROL_SR;
-	writel(value, ioaddr + DMA_CONTROL);
+	gmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 void dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value &= ~DMA_CONTROL_SR;
-	writel(value, ioaddr + DMA_CONTROL);
+	gmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 #ifdef DWMAC_DMA_DEBUG
@@ -226,7 +226,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 		pr_warn("%s: unexpected status %08x\n", __func__, intr_status);
 
 	/* Clear the interrupt by writing a logic 1 to the CSR5[15-0] */
-	writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
+	gmac_writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
 
 	return ret;
 }
@@ -234,7 +234,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr)
 {
 	u32 csr6 = readl(ioaddr + DMA_CONTROL);
-	writel((csr6 | DMA_CONTROL_FTF), ioaddr + DMA_CONTROL);
+	gmac_writel((csr6 | DMA_CONTROL_FTF), ioaddr + DMA_CONTROL);
 
 	do {} while ((readl(ioaddr + DMA_CONTROL) & DMA_CONTROL_FTF));
 }
@@ -249,9 +249,9 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
 	 * bit that has no effect on the High Reg 0 where the bit 31 (MO)
 	 * is RO.
 	 */
-	writel(data | GMAC_HI_REG_AE, ioaddr + high);
+	gmac_writel(data | GMAC_HI_REG_AE, ioaddr + high);
 	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
-	writel(data, ioaddr + low);
+	gmac_writel(data, ioaddr + low);
 }
 EXPORT_SYMBOL_GPL(stmmac_set_mac_addr);
 
@@ -265,7 +265,7 @@ void stmmac_set_mac(void __iomem *ioaddr, bool enable)
 	else
 		value &= ~(MAC_ENABLE_TX | MAC_ENABLE_RX);
 
-	writel(value, ioaddr + MAC_CTRL_REG);
+	gmac_writel(value, ioaddr + MAC_CTRL_REG);
 }
 
 void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,

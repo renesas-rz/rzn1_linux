@@ -35,10 +35,10 @@ static void dwmac100_core_init(struct mac_device_info *hw,
 	if (netdev_uses_dsa(dev))
 		value &= ~MAC_CONTROL_ASTP;
 
-	writel(value, ioaddr + MAC_CONTROL);
+	gmac_writel(value, ioaddr + MAC_CONTROL);
 
 #ifdef STMMAC_VLAN_TAG_USED
-	writel(ETH_P_8021Q, ioaddr + MAC_VLAN1);
+	gmac_writel(ETH_P_8021Q, ioaddr + MAC_VLAN1);
 #endif
 }
 
@@ -97,8 +97,8 @@ static void dwmac100_set_filter(struct mac_device_info *hw,
 		   || (dev->flags & IFF_ALLMULTI)) {
 		value |= MAC_CONTROL_PM;
 		value &= ~(MAC_CONTROL_PR | MAC_CONTROL_IF | MAC_CONTROL_HO);
-		writel(0xffffffff, ioaddr + MAC_HASH_HIGH);
-		writel(0xffffffff, ioaddr + MAC_HASH_LOW);
+		gmac_writel(0xffffffff, ioaddr + MAC_HASH_HIGH);
+		gmac_writel(0xffffffff, ioaddr + MAC_HASH_LOW);
 	} else if (netdev_mc_empty(dev)) {	/* no multicast */
 		value &= ~(MAC_CONTROL_PM | MAC_CONTROL_PR | MAC_CONTROL_IF |
 			   MAC_CONTROL_HO | MAC_CONTROL_HP);
@@ -125,11 +125,11 @@ static void dwmac100_set_filter(struct mac_device_info *hw,
 			 */
 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
 		}
-		writel(mc_filter[0], ioaddr + MAC_HASH_LOW);
-		writel(mc_filter[1], ioaddr + MAC_HASH_HIGH);
+		gmac_writel(mc_filter[0], ioaddr + MAC_HASH_LOW);
+		gmac_writel(mc_filter[1], ioaddr + MAC_HASH_HIGH);
 	}
 
-	writel(value, ioaddr + MAC_CONTROL);
+	gmac_writel(value, ioaddr + MAC_CONTROL);
 }
 
 static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
@@ -141,7 +141,7 @@ static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 
 	if (duplex)
 		flow |= (pause_time << MAC_FLOW_CTRL_PT_SHIFT);
-	writel(flow, ioaddr + MAC_FLOW_CTRL);
+	gmac_writel(flow, ioaddr + MAC_FLOW_CTRL);
 }
 
 /* No PMT module supported on ST boards with this Eth chip. */

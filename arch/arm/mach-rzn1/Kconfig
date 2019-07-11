@@ -1,0 +1,34 @@
+config RZN1_A5PSW_WORKAROUND
+	bool
+	depends on ARCH_RZN1
+	default RZN1_A5PSW_WORKAROUND_SEMAPHORE || RZN1_A5PSW_WORKAROUND_SPINLOCK
+
+choice
+	bool "Renesas RZ/N1 5-Port Switch workaround"
+	default RZN1_A5PSW_WORKAROUND_SEMAPHORE
+	depends on ARCH_RZN1
+	optional
+	help
+	  Every access to the GMACs, the 5-port Switch and the RIN Engine must
+	  be wrapped in a system-wide mutex to ensure that only one core,
+	  including the Cortex M3, can access the registers at a time.
+	  This is to allow writes to the 5-Port Switch to include a write to a
+	  dummy register immediately before the real register write.
+
+	  There are two implementation options: semaphore or spinlock.
+
+config RZN1_A5PSW_WORKAROUND_SEMAPHORE
+	bool "Semaphore"
+	help
+	  The system-wide mutex is implemented using the Semaphore hardware on
+	  the RZ/N1 device. This option should be selected if the Cortex M3 is
+	  active and accesses the switch registers.
+
+config RZN1_A5PSW_WORKAROUND_SPINLOCK
+	bool "Spinlock"
+	help
+	  The system-wide mutex is implemented using a linux kernel spinlock.
+	  This only covers the Linux kernel, and therefore should only be
+	  selected if the Cortex M3 is not accessing the switch.
+
+endchoice

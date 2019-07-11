@@ -20,7 +20,7 @@
 
 static void config_hw_tstamping(void __iomem *ioaddr, u32 data)
 {
-	writel(data, ioaddr + PTP_TCR);
+	gmac_writel(data, ioaddr + PTP_TCR);
 }
 
 static void config_sub_second_increment(void __iomem *ioaddr,
@@ -53,7 +53,7 @@ static void config_sub_second_increment(void __iomem *ioaddr,
 	if (gmac4)
 		reg_value <<= GMAC4_PTP_SSIR_SSINC_SHIFT;
 
-	writel(reg_value, ioaddr + PTP_SSIR);
+	gmac_writel(reg_value, ioaddr + PTP_SSIR);
 
 	if (ssinc)
 		*ssinc = data;
@@ -63,12 +63,12 @@ static int init_systime(void __iomem *ioaddr, u32 sec, u32 nsec)
 {
 	u32 value;
 
-	writel(sec, ioaddr + PTP_STSUR);
-	writel(nsec, ioaddr + PTP_STNSUR);
+	gmac_writel(sec, ioaddr + PTP_STSUR);
+	gmac_writel(nsec, ioaddr + PTP_STNSUR);
 	/* issue command to initialize the system time value */
 	value = readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSINIT;
-	writel(value, ioaddr + PTP_TCR);
+	gmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present system time initialize to complete */
 	return readl_poll_timeout_atomic(ioaddr + PTP_TCR, value,
@@ -81,11 +81,11 @@ static int config_addend(void __iomem *ioaddr, u32 addend)
 	u32 value;
 	int limit;
 
-	writel(addend, ioaddr + PTP_TAR);
+	gmac_writel(addend, ioaddr + PTP_TAR);
 	/* issue command to update the addend value */
 	value = readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSADDREG;
-	writel(value, ioaddr + PTP_TCR);
+	gmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present addend update to complete */
 	limit = 10;
@@ -121,14 +121,14 @@ static int adjust_systime(void __iomem *ioaddr, u32 sec, u32 nsec,
 			nsec = (PTP_BINARY_ROLLOVER_MODE - nsec);
 	}
 
-	writel(sec, ioaddr + PTP_STSUR);
+	gmac_writel(sec, ioaddr + PTP_STSUR);
 	value = (add_sub << PTP_STNSUR_ADDSUB_SHIFT) | nsec;
-	writel(value, ioaddr + PTP_STNSUR);
+	gmac_writel(value, ioaddr + PTP_STNSUR);
 
 	/* issue command to initialize the system time value */
 	value = readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSUPDT;
-	writel(value, ioaddr + PTP_TCR);
+	gmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present system time adjust/update to complete */
 	limit = 10;
