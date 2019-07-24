@@ -1,0 +1,12 @@
+#
+# Acontis Ethercat
+#
+
+menu "Acontis Ethercat"
+
+config NET_ACONTIS_ETHCAT
+	tristate "Acontis EtherCAT Driver"
+	help
+	  If you have an EtherCAT capable device that will use the Acontis
+	  EtherCAT module say M.
+endmenu
