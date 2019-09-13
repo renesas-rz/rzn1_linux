@@ -1342,11 +1342,8 @@ static int nfc_read_page_mode(struct mtd_info *mtd, struct nand_chip *chip,
 	struct chip_info *info = TO_CHIP_INFO(mtd);
 	unsigned int max_bitflips;
 	u32 ecc_status;
-	int prog_page_ret;
 
-	prog_page_ret = nand_prog_page_begin_op(chip, page, 0, buf, mtd->writesize);
-	if (prog_page_ret != 0)
-		return prog_page_ret;
+	chip->cmdfunc(mtd, NAND_CMD_READ0, 0x0, page);
 
 	MTD_TRACE("page %d, col %d, offs %d, size %d\n",
 		  page, info->cmd_cache.column, offset, len);
@@ -1419,10 +1416,6 @@ static int nfc_read_page_mode(struct mtd_info *mtd, struct nand_chip *chip,
 		dev_crit(nfc_info->dev, "Need separate read for the OOB\n");
 		BUG();
 	}
-
-	prog_page_ret = nand_prog_page_end_op(chip);
-	if (prog_page_ret != 0)
-		return prog_page_ret;
 
 	return max_bitflips;
 }
