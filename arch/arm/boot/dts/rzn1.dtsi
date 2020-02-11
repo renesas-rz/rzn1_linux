@@ -759,6 +759,22 @@
 			clock-names = "bus";
 			status = "disabled";
 
+			/* GPIO0a[0]      corresponds to pin  0      */
+			/* GPIO0a[1..2]   corresponds to pins 3..4   */
+			/* GPIO0a[3..4]   corresponds to pins 9..10  */
+			/* GPIO0a[5]      corresponds to pin  12     */
+			/* GPIO0a[6..7]   corresponds to pins 15..16 */
+			/* GPIO0a[8..9]   corresponds to pins 21..22 */
+			/* GPIO0a[10]     corresponds to pin  24     */
+			/* GPIO0a[11..12] corresponds to pins 27..28 */
+			/* GPIO0a[13..14] corresponds to pins 33..34 */
+			/* GPIO0a[15]     corresponds to pin  36     */
+			/* GPIO0a[16..17] corresponds to pins 39..40 */
+			/* GPIO0a[18..19] corresponds to pins 45..46 */
+			/* GPIO0a[20]     corresponds to pin  48     */
+			/* GPIO0a[21..22] corresponds to pins 51..52 */
+			/* GPIO0a[23..24] corresponds to pins 57..58 */
+			/* GPIO0a[25..31] corresponds to pins 62..68 */
 			gpio0a: gpio@0 {
 				compatible = "snps,dw-apb-gpio-port";
 				bank-name = "gpio0a";
@@ -775,6 +791,20 @@
 						24 25 26 27 28 29 30 31 >;
 				#interrupt-cells = <2>;
 			};
+			/* GPIO0b[0..1]   corresponds to pins 1..2   */
+			/* GPIO0b[2..5]   corresponds to pins 5..8   */
+			/* GPIO0b[6]      corresponds to pin  11     */
+			/* GPIO0b[7..8]   corresponds to pins 13..14 */
+			/* GPIO0b[9..12]  corresponds to pins 17..20 */
+			/* GPIO0b[13]     corresponds to pin  23     */
+			/* GPIO0b[14..15] corresponds to pins 25..26 */
+			/* GPIO0b[16..19] corresponds to pins 29..32 */
+			/* GPIO0b[20]     corresponds to pin  35     */
+			/* GPIO0b[21..22] corresponds to pins 37..38 */
+			/* GPIO0b[23..26] corresponds to pins 41..44 */
+			/* GPIO0b[27]     corresponds to pin  47     */
+			/* GPIO0b[28..29] corresponds to pins 49..50 */
+			/* GPIO0b[30..31] corresponds to pins 53..54 */
 			gpio0b: gpio@1 {
 				compatible = "snps,dw-apb-gpio-port";
 				bank-name = "gpio0b";
@@ -794,8 +824,8 @@
 			clock-names = "bus";
 			status = "disabled";
 
-			/* GPIO1a[0..4] corresponds to pins 45..49 */
-			/* GPIO1a[5..31] corresponds to pins 71..121 */
+			/* GPIO1a[0..4] corresponds to pins 69..73 */
+			/* GPIO1a[5..31] corresponds to pins 95..121 */
 			gpio1a: gpio@0 {
 				compatible = "snps,dw-apb-gpio-port";
 				bank-name = "gpio1a";
@@ -812,9 +842,9 @@
 						56 57 58 59 60 61 62 63 >;
 				#interrupt-cells = <2>;
 			};
-			/* GPIO1b[0..1] corresponds to pins 31..32 */
-			/* GPIO1b[2..4] corresponds to pins 35..37 */
-			/* GPIO1b[5..25] corresponds to pins 50..70 */
+			/* GPIO1b[0..1] corresponds to pins 55..56 */
+			/* GPIO1b[2..4] corresponds to pins 59..61 */
+			/* GPIO1b[5..25] corresponds to pins 74..94 */
 			/* GPIO1b[26..31] corresponds to pins 150..155 */
 			gpio1b: gpio@1 {
 				compatible = "snps,dw-apb-gpio-port";
