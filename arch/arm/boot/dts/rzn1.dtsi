@@ -911,6 +911,7 @@
 				<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
 			#interrupt-cells = <1>;
 			#address-cells = <0>;
+			interrupt-controller;
 			interrupt-map-mask = <0x3f>;
 		};
 
