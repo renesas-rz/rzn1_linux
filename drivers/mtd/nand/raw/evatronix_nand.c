@@ -1489,7 +1489,13 @@ static int nfc_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 static int nfc_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 			      const u8 *buf, int oob_required, int page)
 {
+	int prog_page_ret;
 	struct chip_info *info = TO_CHIP_INFO(mtd);
+
+	prog_page_ret =	nand_prog_page_begin_op(mtd_to_nand(mtd),
+						page, 0, NULL, 0);
+	if (prog_page_ret != 0)
+		return prog_page_ret;
 
 	MTD_TRACE("oob_required %d\n", oob_required);
 
@@ -1502,7 +1508,7 @@ static int nfc_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 	if (oob_required)
 		chip->write_buf(mtd, info->chip.oob_poi, mtd->oobsize);
 
-	return 0;
+	return nand_prog_page_end_op(mtd_to_nand(mtd));
 }
 
 /* Handle commands from MTD NAND layer */
