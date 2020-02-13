@@ -563,7 +563,7 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 		goto out;
 
 	/* DMA requires tx whilst doing an rx */
-	dws->master->flags = SPI_MASTER_MUST_TX;
+	dws->master->flags |= SPI_MASTER_MUST_TX;
 
 	platform_set_drvdata(pdev, dwsmmio);
 	return 0;
