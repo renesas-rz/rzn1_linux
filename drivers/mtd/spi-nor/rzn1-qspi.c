@@ -449,7 +449,7 @@ static ssize_t rzn1_qspi_write(struct spi_nor *nor, loff_t to,
 	struct rzn1_qspi_slave *s = nor->priv;
 	struct rzn1_qspi *q = s->host;
 	u32 low = ((u32)q->ahb_phys + (u32)to) / nor->mtd.erasesize;
-	u32 upp = low + len / nor->mtd.erasesize;
+	u32 upp = ((u32)q->ahb_phys + (u32)to + len) / nor->mtd.erasesize;
 
 	/* Disable write protect to set protection boundary registers */
 	qspi_writel(~CQSPI_REG_WRPROT_ENABLE_MASK | CQSPI_REG_WRPROT_INVERT, &q->reg->wrprot);
