@@ -449,7 +449,7 @@ static ssize_t rzn1_qspi_write(struct spi_nor *nor, loff_t to,
 	struct rzn1_qspi_slave *s = nor->priv;
 	struct rzn1_qspi *q = s->host;
 	u32 low = ((u32)q->ahb_phys + (u32)to) / nor->mtd.erasesize;
-	u32 upp = low + len / nor->mtd.erasesize;
+	u32 upp = ((u32)q->ahb_phys + (u32)to + len) / nor->mtd.erasesize;
 
 	qspi_writel(low, &q->reg->lowwrprot);
 	qspi_writel(upp, &q->reg->uppwrprot);
