@@ -359,7 +359,7 @@ static int rzn1_qspi_nor_setup(struct rzn1_qspi *q)
 	/* Enable Protected Area Write Attempt interrupts */
 	qspi_writel(CQSPI_REG_IRQMASK_WP, &q->reg->irqmask);
 
-	/* this is the defaul SPI mode for most SPI NOR flashes */
+	/* This is the default SPI mode for most SPI NOR flashes */
 	reg |= (1 << CQSPI_REG_CONFIG_CLK_POL_LSB);
 	reg |= (1 << CQSPI_REG_CONFIG_CLK_PHA_LSB);
 	/* This is the only setup we need; enable memory mapped range */
