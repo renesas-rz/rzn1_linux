@@ -24,6 +24,11 @@ properties:
 
       - items:
           - enum:
+              - renesas,r9a06g032-wdt    # RZ/N1D
+          - const: renesas,rzn1-wdt      # RZ/N1
+
+      - items:
+          - enum:
               - renesas,r8a7742-wdt      # RZ/G1H
               - renesas,r8a7743-wdt      # RZ/G1M
               - renesas,r8a7744-wdt      # RZ/G1N
@@ -82,6 +87,7 @@ if:
         contains:
           enum:
             - renesas,rza-wdt
+            - renesas,rzn1-wdt
 then:
   required:
     - power-domains
