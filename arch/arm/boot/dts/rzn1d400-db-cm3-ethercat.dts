@@ -20,3 +20,14 @@
 
 	/delete-node/ at24@50;
 };
+
+&leds {
+	/delete-node/ led_1;
+	/delete-node/ led_2;
+};
+
+/delete-node/ &gpio1;
+
+&clocks {
+	/delete-node/ hclk_gpio1@RZN1_HCLK_GPIO1_ID;
+};
