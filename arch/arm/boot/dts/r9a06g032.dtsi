@@ -77,6 +77,14 @@
 			clock-names = "mclk", "rtc", "jtag", "rgmii_ref_ext";
 		};
 
+		ddrctrl: memory-controller@4000d000 {
+			compatible = "cadence,ddr-ctrl";
+			reg = <0x4000d000 0x1000>;
+			interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_DDRC>, <&sysctrl R9A06G032_HCLK_DDRC>;
+			status = "disabled";
+		};
+
 		uart0: serial@40060000 {
 			compatible = "renesas,r9a06g032-uart", "renesas,rzn1-uart", "snps,dw-apb-uart";
 			reg = <0x40060000 0x400>;
