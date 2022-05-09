@@ -10,6 +10,12 @@ maintainers:
   - Gareth Williams <gareth.williams.jx@renesas.com>
   - Geert Uytterhoeven <geert+renesas@glider.be>
 
+description: |
+  This driver also adds the file /sys/kernel/rzn1/clk_set_rate
+  which allows userland to change the clock rate of anything that will
+  allow it. It was mainly made to test the clock infrastructure, however
+  it could also be used for other purposes.
+
 properties:
   compatible:
     const: renesas,r9a06g032-sysctrl

@@ -985,3 +985,102 @@ static int __init r9a06g032_clocks_init(void)
 }
 
 subsys_initcall(r9a06g032_clocks_init);
+
+static ssize_t sys_clk_set_rate_store(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf, size_t count)
+{
+	char *copy, *p;
+	const char *trate;
+	const char *name;
+	long rate;
+	struct clk *clk;
+
+	copy = kzalloc(sizeof(*copy)*count, GFP_KERNEL);
+	if (!copy)
+		return -ENOMEM;
+
+	p = copy;
+
+	/* the 'buf' is const, so we can't strsep into it */
+	strncpy(copy, buf, sizeof(*copy)*count);
+	name = strsep(&p, " ");
+
+	if (name)
+		trate = strsep(&p, " ");
+
+	if (!name || !trate)
+		return -EINVAL;
+
+	pr_devel("%s clock:%s rate:%s\n", __func__, name, trate);
+
+	if (kstrtol(trate, 10, &rate) != 0) {
+		pr_err("%s %s, invalid rate %s\n", __func__, name, trate);
+		return -EINVAL;
+	}
+	pr_devel("%s %s requested rate %ld\n", __func__, name, rate);
+
+	clk = __clk_lookup(name);
+	if (clk == NULL) {
+		pr_err("%s %s: clock not found\n", __func__, name);
+		return -ENXIO;
+	}
+
+	pr_devel("%s clk %s found\n", __func__, name);
+	pr_devel("%s %s current rate %lu\n", __func__, name,
+		 clk_get_rate(clk));
+
+	if (rate > 0) {
+		if (clk_set_rate(clk, rate))
+			pr_err("%s %s FAILED\n", __func__, name);
+		else
+			pr_info("%s %s set to %lu\n", __func__, name,
+				clk_get_rate(clk));
+	} else {
+		pr_err("%s %s, invalid rate %s\n", __func__, name, trate);
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static ssize_t sys_clk_set_rate_show(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	strcpy(buf, "Usage: echo <clock name> <rate in hz> >clk_set_rate\n");
+	return strlen(buf);
+}
+
+static struct kobj_attribute clk_set_rate_attribute =
+	__ATTR(clk_set_rate, 0644,
+	       sys_clk_set_rate_show, sys_clk_set_rate_store);
+
+static struct attribute *attrs[] = {
+	&clk_set_rate_attribute.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+static struct kobject *grp_kobj;
+
+static int __init rzn1_clock_sys_init(void)
+{
+	int retval;
+
+	grp_kobj = kobject_create_and_add("rzn1", kernel_kobj);
+	if (!grp_kobj)
+		return -ENOMEM;
+
+	retval = sysfs_create_group(grp_kobj, &attr_group);
+	if (retval)
+		kobject_put(grp_kobj);
+
+	return retval;
+}
+postcore_initcall(rzn1_clock_sys_init);
