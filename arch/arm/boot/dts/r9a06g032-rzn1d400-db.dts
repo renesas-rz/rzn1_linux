@@ -27,6 +27,14 @@
 	status = "okay";
 };
 
+/* Note, timer0 may be used by the Cortex M3 software */
+&timer1 {
+	status = "okay";
+	/* Enable the /25 prescaler only on the 16-bit timers */
+	renesas,clk-prescaler = <1 1 1 1 1 1 0 0>;
+	renesas,timer-rating = <150 150 150 150 150 150 460 460>;
+};
+
 &uart0 {
 	status = "okay";
 };
