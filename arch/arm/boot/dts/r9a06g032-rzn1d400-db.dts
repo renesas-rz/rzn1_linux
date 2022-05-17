@@ -31,6 +31,10 @@
 	status = "okay";
 };
 
+&usbh_pci {
+	status = "okay";
+};
+
 &wdt0 {
 	status = "okay";
 };
