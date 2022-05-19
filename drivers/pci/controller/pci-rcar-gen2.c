@@ -8,6 +8,7 @@
  * Author: Valentine Barshak <valentine.barshak@cogentembedded.com>
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -282,6 +283,11 @@ static int rcar_pci_probe(struct platform_device *pdev)
 	struct rcar_pci_priv *priv;
 	struct pci_host_bridge *bridge;
 	void __iomem *reg;
+	struct clk *clk;
+
+	clk = devm_clk_get_optional(&pdev->dev, "axi");
+	if (IS_ERR(clk) || clk_prepare_enable(clk))
+		dev_info(&pdev->dev, "no clock source\n");
 
 	bridge = devm_pci_alloc_host_bridge(dev, sizeof(*priv));
 	if (!bridge)
