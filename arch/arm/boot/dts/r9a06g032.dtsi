@@ -408,6 +408,19 @@
 			status = "disabled";
 		};
 
+		eth_miic: eth-miic@44030000 {
+			compatible = "renesas,rzn1-miic";
+			#address-cells = <1>;
+			reg = <0x44030000 0x10000>;
+			status = "disabled";
+			clocks = <&sysctrl R9A06G032_CLK_MII_REF>,
+				 <&sysctrl R9A06G032_CLK_RMII_REF>,
+				 <&sysctrl R9A06G032_CLK_RGMII_REF>,
+				 <&sysctrl R9A06G032_HCLK_SWITCH>;
+			clock-names = "mii_ref", "rmii_ref", "rgmii_ref", "ahb";
+			power-domains = <&sysctrl>;
+		};
+
 		gic: interrupt-controller@44101000 {
 			compatible = "arm,gic-400", "arm,cortex-a7-gic";
 			interrupt-controller;
