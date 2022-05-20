@@ -60,12 +60,18 @@ static void phy_link_up(struct phy_device *phydev)
 {
 	phydev->phy_link_change(phydev, true);
 	phy_led_trigger_change_speed(phydev);
+
+	if (phydev->pre_adjust_link)
+		phydev->pre_adjust_link(phydev->pre_adjust_link_priv);
 }
 
 static void phy_link_down(struct phy_device *phydev)
 {
 	phydev->phy_link_change(phydev, false);
 	phy_led_trigger_change_speed(phydev);
+
+	if (phydev->pre_adjust_link)
+		phydev->pre_adjust_link(phydev->pre_adjust_link_priv);
 }
 
 static const char *phy_pause_str(struct phy_device *phydev)

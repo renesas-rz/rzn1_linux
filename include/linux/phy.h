@@ -666,6 +666,9 @@ struct phy_device {
 	void (*phy_link_change)(struct phy_device *phydev, bool up);
 	void (*adjust_link)(struct net_device *dev);
 
+	void (*pre_adjust_link)(void *priv);
+	void *pre_adjust_link_priv;
+
 #if IS_ENABLED(CONFIG_MACSEC)
 	/* MACsec management functions */
 	const struct macsec_ops *macsec_ops;
@@ -1454,6 +1457,8 @@ struct phy_device *phy_connect(struct net_device *dev, const char *bus_id,
 			       phy_interface_t interface);
 void phy_disconnect(struct phy_device *phydev);
 void phy_detach(struct phy_device *phydev);
+void phy_pre_prepare_link(struct phy_device *phydev, void *priv,
+			  void (*handler)(void *));
 void phy_start(struct phy_device *phydev);
 void phy_stop(struct phy_device *phydev);
 int phy_config_aneg(struct phy_device *phydev);

@@ -1031,6 +1031,14 @@ static void phy_prepare_link(struct phy_device *phydev,
 	phydev->adjust_link = handler;
 }
 
+void phy_pre_prepare_link(struct phy_device *phydev, void *priv,
+			  void (*handler)(void *))
+{
+	phydev->pre_adjust_link = handler;
+	phydev->pre_adjust_link_priv = priv;
+}
+EXPORT_SYMBOL(phy_pre_prepare_link);
+
 /**
  * phy_connect_direct - connect an ethernet device to a specific phy_device
  * @dev: the network device to connect
