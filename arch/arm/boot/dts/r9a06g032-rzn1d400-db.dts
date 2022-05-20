@@ -134,6 +134,21 @@
 	};
 };
 
+&eth_miic {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_refclk_rgmii>;
+
+	/*
+	 * This dts is for use Cortex M3 code, e.g. GOAL, that sets the RIN Mode
+	 * Control, so do not set it here.
+	 */
+
+	mii0: eth-mii0 {
+		phy-handle = <&phy_mii0>;
+	};
+};
+
 &gmac0 {
 	/* Only accessible from the Ext Board */
 	status = "okay";
