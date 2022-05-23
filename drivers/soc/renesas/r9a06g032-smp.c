@@ -12,6 +12,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/smp.h>
+#include <linux/sysctrl-rzn1.h>
 
 /*
  * The second CPU is parked in ROM at boot time. It requires waking it after
@@ -85,6 +86,8 @@ static void __init r9a06g032_smp_prepare_cpus(unsigned int max_cpus)
 	pr_info("CPU#1: cpu-release-addr %08x\n", bootaddr);
 
 	cpu_bootaddr = ioremap(bootaddr, sizeof(bootaddr));
+
+	rzn1_sysctrl_init();
 }
 
 static const struct smp_operations r9a06g032_smp_ops __initconst = {
