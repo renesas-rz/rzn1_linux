@@ -39,6 +39,10 @@
 	status = "okay";
 };
 
+&usbf {
+	status = "okay";
+};
+
 &usbh_pci {
 	status = "okay";
 };
