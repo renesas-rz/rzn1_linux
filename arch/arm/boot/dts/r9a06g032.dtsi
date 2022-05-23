@@ -122,6 +122,23 @@
 			status = "disabled";
 		};
 
+		usbf: usbf@4001e000 {
+			compatible = "renesas,rzn1-usbf";
+			reg = <0x4001e000 0x2000>;
+			interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "epc", "usbf";
+			clocks = <&sysctrl R9A06G032_HCLK_USBF>,
+				 <&sysctrl R9A06G032_HCLK_USBPM>;
+			clock-names = "axi", "usbpm";
+			renesas,sram-size = <5024>; /* 32 bits words */
+			/* Allow 4 x 512 byte packets per endpoint to support MTU of 1500.
+			 * Due to protocol overheads, 3 x 512 byte packets is not enough. */
+			renesas,sram-conf,g_ether = <4 2 0>;
+			renesas,sram-conf,g_mass_storage = <8 8 0 0 0 0>;
+			status = "disabled";
+		};
+
 		usbh_pci: pci@40030000 {
 			compatible = "renesas,pci-rzn1";
 			device_type = "pci";
