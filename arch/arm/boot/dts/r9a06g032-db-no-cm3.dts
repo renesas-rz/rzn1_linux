@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2016-2022 Renesas Electronics Europe Ltd
+ *
+ * Device Tree Source for the RZN1D Demo Board.
+ * This dts is for use when the Cortex M3 is not running, i.e. Linux controls
+ * GMAC0, GMAC1, the 5-Port Switch and the RGMII/GMII Converters.
+ */
+
+#include "r9a06g032-rzn1d400-db.dts"
+
+&ethswitch {
+	status = "okay";
+	bus_freq = <2500000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_switch>, <&pins_mdio1>, <&pins_refclk_mii1>,
+		    <&pins_eth1>, <&pins_eth2>, <&pins_eth3>, <&pins_eth4>;
+
+	/*
+	 * All PHYs, included the one attached to gmac0, are reset using GPIO 94.
+	 * We rely on U-Boot to toggle this reset pin for other use cases, so don't
+	 * really need to reset it here, however it stays as an example.
+	 */
+	phy-reset-gpios = <&gpio1b 25 GPIO_ACTIVE_HIGH>;
+	phy-reset-duration = <15>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	portA: phy_mii4: ethernet-phy@5 {
+		compatible = "ethernet-phy-id0141.0dd4",
+			     "ethernet-phy-ieee802.3-c22";
+		device_type = "ethernet-phy";
+		phy-mode = "mii";
+		reg = <5>;
+		micrel,10mbps-preamble-restore;
+		/* Set LED0 as active low link status */
+		micrel,led-mode = <1>;
+		interrupt-parent = <&gpio2a>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+	};
+	portB: phy_mii3: ethernet-phy@4 {
+		compatible = "ethernet-phy-id0141.0dd4",
+			     "ethernet-phy-ieee802.3-c22";
+		device_type = "ethernet-phy";
+		phy-mode = "mii";
+		reg = <4>;
+		micrel,10mbps-preamble-restore;
+		/* Set LED0 as active low link status */
+		micrel,led-mode = <1>;
+		interrupt-parent = <&gpio2a>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+
+		/* Enable this port during init */
+		swport-early-enable;
+	};
+	portC: phy_mii2: ethernet-phy@10 {
+		compatible = "ethernet-phy-id0141.0dd4",
+			     "ethernet-phy-ieee802.3-c22";
+		/* Ext Board: Marvell 88E1512 PHY on J24 */
+		device_type = "ethernet-phy";
+		phy-mode = "rgmii-id";
+		reg = <10>;
+		/* Set LED0 as active low link status, LED2 as interrupt */
+		marvell,reg-init = <3 16 0 0x1010 3 18 0 0x4980>;
+		interrupt-parent = <&gpio1a>;
+		interrupts = <28 IRQ_TYPE_LEVEL_LOW>;
+	};
+	portD: phy_mii1: ethernet-phy@1 {
+		compatible = "ethernet-phy-id0141.0dd4",
+			     "ethernet-phy-ieee802.3-c22";
+		/* Ext Board: Marvell 88E1512 PHY on J23 */
+		device_type = "ethernet-phy";
+		phy-mode = "rgmii-id";
+		reg = <1>;
+		/* Set LED0 as active low link status, LED2 as interrupt */
+		marvell,reg-init = <3 16 0 0x1010 3 18 0 0x4980>;
+		interrupt-parent = <&gpio2a>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+	};
+};
+
+&eth_miic {
+	/* RIN Mode Control - GMAC1 on all Switch ports */
+	mode_control = <0x13>;
+
+	/* Add MII used by Eth Switch */
+	mii1: eth-mii1 {
+		phy-handle = <&phy_mii1>;
+	};
+	mii2: eth-mii2 {
+		phy-handle = <&phy_mii2>;
+	};
+	mii3: eth-mii3 {
+		phy-handle = <&phy_mii3>;
+	};
+	mii4: eth-mii4 {
+		phy-handle = <&phy_mii4>;
+	};
+};
+
+&gmac1 {
+	status = "okay";
+
+	/* Fixed 1Gbps link to the 5-port switch */
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
