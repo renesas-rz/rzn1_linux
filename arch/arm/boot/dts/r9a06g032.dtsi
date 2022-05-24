@@ -87,6 +87,19 @@
 		interrupt-parent = <&gic>;
 		ranges;
 
+		qspi: qspi0: spi@40005000 {
+			compatible = "renesas,rzn1-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x40005000 0x1000
+			       0x10000000 0x10000000>;
+			reg-names = "qspi", "qspi-mapping";
+			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_HCLK_QSPI0>, <&sysctrl R9A06G032_CLK_QSPI0>;
+			clock-names = "hclk", "pclk";
+			status = "disabled";
+		};
+
 		wdt0: wdt0@40008000 {
 			compatible = "renesas,rzn1-watchdog";
 			reg = <0x40008000 0x1000>;
