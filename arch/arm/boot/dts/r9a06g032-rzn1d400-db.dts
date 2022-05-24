@@ -9,6 +9,7 @@
 /dts-v1/;
 
 #include "r9a06g032.dtsi"
+#include "r9a06g032-db-pinmux.dtsi"
 
 / {
 	model = "RZN1D-DB Board";
@@ -20,11 +21,79 @@
 
 	aliases {
 		serial0 = &uart0;
+		spi0 = &qspi0;
 	};
 };
 
 &ddrctrl {
 	status = "okay";
+};
+
+&qspi0 {
+	pinctrl-0 = <&pins_qspi0>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	flash: mx25l25635@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "macronix,mx25l25635e", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <62500000>;
+		spi-cpha;
+		spi-cpol;
+		spi-rx-bus-width = <4>;
+		renesas,rzn1-read-cmd = <0xeb 6 1>;
+		renesas,rzn1-readcap-delay = <1>;
+		/* The properties below are used by U-Boot */
+		tshsl-ns = <30>;
+		tsd2d-ns = <3>;
+		tchsh-ns = <3>;
+		tslch-ns = <3>;
+		memory-map = <0x10000000 0x10000000>;
+		memory-map-write = <1>;
+
+		partition@0 {
+			/* 64KB */
+			label = "qspi0:spl";
+			reg = <0x0000000 0x00010000>;
+		};
+		partition@1 {
+			/* 64KB */
+			label = "qspi0:pkgt";
+			reg = <0x0010000 0x00010000>;
+		};
+		partition@2 {
+			/* 512KB */
+			label = "qspi0:u-boot";
+			reg = <0x0020000 0x00080000>;
+		};
+		partition@3 {
+			/* 64KB */
+			label = "qspi0:env";
+			reg = <0x00a0000 0x00010000>;
+		};
+		partition@4 {
+			/* 128KB */
+			label = "qspi0:dtb";
+			reg = <0x00b0000 0x00020000>;
+		};
+		partition@5 {
+			/* 1MB */
+			label = "qspi0:cm3";
+			reg = <0x00d0000 0x00100000>;
+		};
+		partition@6 {
+			/* 6MB */
+			label = "qspi0:kernel";
+			reg = <0x01d0000 0x00600000>;
+		};
+		partition@7 {
+			/* Remaining */
+			label = "qspi0:data";
+			reg = <0x07d0000 0>;
+		};
+	};
 };
 
 /* Note, timer0 may be used by the Cortex M3 software */
