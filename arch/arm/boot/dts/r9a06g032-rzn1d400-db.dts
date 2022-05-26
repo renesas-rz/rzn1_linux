@@ -29,6 +29,19 @@
 	status = "okay";
 };
 
+/* Calculated gpio irq numbers: gpioXa Y = 32*X + Y */
+#define GPIOA_IRQ(gpioa_block, nr)	(32 * (gpioa_block) + (nr))
+
+&gpioirqmux {
+	status = "okay";
+	interrupt-map = <GPIOA_IRQ(2, 24) &gic GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>, /* pin 146: ETH Port 1 IRQ */
+			<GPIOA_IRQ(2,  4) &gic GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>, /* pin 126: ETH Port 2 IRQ */
+			<GPIOA_IRQ(1, 28) &gic GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>, /* pin 118: ETH Port 3 IRQ */
+			<GPIOA_IRQ(2, 25) &gic GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>, /* pin 147: ETH Port 4 IRQ */
+			<GPIOA_IRQ(2, 27) &gic GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>, /* pin 149: ETH Port 5 IRQ */
+			<GPIOA_IRQ(2, 26) &gic GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>; /* pin 148: TouchSCRN_IRQ */
+};
+
 &qspi0 {
 	pinctrl-0 = <&pins_qspi0>;
 	pinctrl-names = "default";
