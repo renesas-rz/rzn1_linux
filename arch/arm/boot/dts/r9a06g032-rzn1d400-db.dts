@@ -29,6 +29,18 @@
 	status = "okay";
 };
 
+&gpio1 {
+	pinctrl-0 = <&pins_gpio1>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&gpio2 {
+	pinctrl-0 = <&pins_gpio2>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 /* Calculated gpio irq numbers: gpioXa Y = 32*X + Y */
 #define GPIOA_IRQ(gpioa_block, nr)	(32 * (gpioa_block) + (nr))
 
