@@ -8,6 +8,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/r9a06g032-sysctrl.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	compatible = "renesas,r9a06g032";
@@ -298,6 +299,157 @@
 			      <0x44106000 0x2000>; /* Virt CPU interface */
 			interrupts =
 				<GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_HIGH)>;
+		};
+
+		/*
+		 * The GPIO mapping to the corresponding pins is complicated,
+		 * see the hardware documentation for details.
+		 */
+		gpio0: gpio@5000b000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x5000b000 0x80>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&sysctrl R9A06G032_HCLK_GPIO0>;
+			clock-names = "bus";
+			status = "disabled";
+
+			/* GPIO0a[0]      corresponds to pin  0      */
+			/* GPIO0a[1..2]   corresponds to pins 3..4   */
+			/* GPIO0a[3..4]   corresponds to pins 9..10  */
+			/* GPIO0a[5]      corresponds to pin  12     */
+			/* GPIO0a[6..7]   corresponds to pins 15..16 */
+			/* GPIO0a[8..9]   corresponds to pins 21..22 */
+			/* GPIO0a[10]     corresponds to pin  24     */
+			/* GPIO0a[11..12] corresponds to pins 27..28 */
+			/* GPIO0a[13..14] corresponds to pins 33..34 */
+			/* GPIO0a[15]     corresponds to pin  36     */
+			/* GPIO0a[16..17] corresponds to pins 39..40 */
+			/* GPIO0a[18..19] corresponds to pins 45..46 */
+			/* GPIO0a[20]     corresponds to pin  48     */
+			/* GPIO0a[21..22] corresponds to pins 51..52 */
+			/* GPIO0a[23..24] corresponds to pins 57..58 */
+			/* GPIO0a[25..31] corresponds to pins 62..68 */
+			gpio0a: gpio@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				bank-name = "gpio0a";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <32>;
+				reg = <0>;
+
+				interrupt-controller;
+				interrupt-parent = <&gpioirqmux>;
+				interrupts =   < 0  1  2  3  4  5  6  7
+						 8  9 10 11 12 13 14 15
+						16 17 18 19 20 21 22 23
+						24 25 26 27 28 29 30 31 >;
+				#interrupt-cells = <2>;
+			};
+
+			/* GPIO0b[0..1]   corresponds to pins 1..2   */
+			/* GPIO0b[2..5]   corresponds to pins 5..8   */
+			/* GPIO0b[6]      corresponds to pin  11     */
+			/* GPIO0b[7..8]   corresponds to pins 13..14 */
+			/* GPIO0b[9..12]  corresponds to pins 17..20 */
+			/* GPIO0b[13]     corresponds to pin  23     */
+			/* GPIO0b[14..15] corresponds to pins 25..26 */
+			/* GPIO0b[16..19] corresponds to pins 29..32 */
+			/* GPIO0b[20]     corresponds to pin  35     */
+			/* GPIO0b[21..22] corresponds to pins 37..38 */
+			/* GPIO0b[23..26] corresponds to pins 41..44 */
+			/* GPIO0b[27]     corresponds to pin  47     */
+			/* GPIO0b[28..29] corresponds to pins 49..50 */
+			/* GPIO0b[30..31] corresponds to pins 53..54 */
+			gpio0b: gpio@1 {
+				compatible = "snps,dw-apb-gpio-port";
+				bank-name = "gpio0b";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <32>;
+				reg = <1>;
+			};
+		};
+
+		gpio1: gpio@5000c000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x5000c000 0x80>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&sysctrl R9A06G032_HCLK_GPIO1>;
+			clock-names = "bus";
+			status = "disabled";
+
+			/* GPIO1a[0..4] corresponds to pins 69..73 */
+			/* GPIO1a[5..31] corresponds to pins 95..121 */
+			gpio1a: gpio@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				bank-name = "gpio1a";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <32>;
+				reg = <0>;
+
+				interrupt-controller;
+				interrupt-parent = <&gpioirqmux>;
+				interrupts =  < 32 33 34 35 36 37 38 39
+						40 41 42 43 44 45 46 47
+						48 49 50 51 52 53 54 55
+						56 57 58 59 60 61 62 63 >;
+				#interrupt-cells = <2>;
+			};
+
+			/* GPIO1b[0..1] corresponds to pins 55..56 */
+			/* GPIO1b[2..4] corresponds to pins 59..61 */
+			/* GPIO1b[5..25] corresponds to pins 74..94 */
+			/* GPIO1b[26..31] corresponds to pins 150..155 */
+			gpio1b: gpio@1 {
+				compatible = "snps,dw-apb-gpio-port";
+				bank-name = "gpio1b";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <32>;
+				reg = <1>;
+			};
+		};
+
+		gpio2: gpio@5000d000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x5000d000 0x80>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&sysctrl R9A06G032_HCLK_GPIO2>;
+			clock-names = "bus";
+			status = "disabled";
+
+			/* GPIO2a[0..27] corresponds to pins 122..149 */
+			/* GPIO2a[28..31] corresponds to pins 156..159 */
+			gpio2a: gpio@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				bank-name = "gpio2a";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <32>;
+				reg = <0>;
+
+				interrupt-controller;
+				interrupt-parent = <&gpioirqmux>;
+				interrupts =  < 64 65 66 67 68 69 70 71
+						72 73 74 75 76 77 78 79
+						80 81 82 83 84 85 86 87
+						88 89 90 91 92 93 94 95 >;
+				#interrupt-cells = <2>;
+			};
+
+			/* GPIO2b[0..9] corresponds to pins 160..169 */
+			gpio2b: gpio@1 {
+				compatible = "snps,dw-apb-gpio-port";
+				bank-name = "gpio2b";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <10>;
+				reg = <1>;
+			};
 		};
 
 		gpioirqmux: interrupt-controller@51000480 {
