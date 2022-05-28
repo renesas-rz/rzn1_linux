@@ -29,6 +29,41 @@
 	status = "okay";
 };
 
+&gmac0 {
+	/* Only accessible from the Ext Board */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_mdio0>, <&pins_eth0>;
+
+	/*
+	 * Do not use GPIO 94 to reset the PHY. This signal is used to reset all
+	 * PHYs on the board, but the other PHYs are controlled by firmware on the
+	 * Cortex M3 and we do not want to disturb them. We rely on U-Boot to toggle
+	 * this reset pin.
+	 */
+
+	phy-handle = <&phy_mii0>;
+	phy-mode = "rgmii-id";
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+
+		phy_mii0: ethernet-phy@8 {
+			/* Ext Board: Marvell 88E1512 PHY on J22 */
+			compatible = "ethernet-phy-id0141.0dd4",
+				     "ethernet-phy-ieee802.3-c22";
+			device_type = "ethernet-phy";
+			reg = <8>;
+			/* Set LED0 as active low link status, LED2 as interrupt */
+			marvell,reg-init = <3 16 0 0x1010 3 18 0 0x4980>;
+			interrupt-parent = <&gpio2a>;
+			interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
+		};
+	};
+};
+
 &gpio1 {
 	pinctrl-0 = <&pins_gpio1>;
 	pinctrl-names = "default";
