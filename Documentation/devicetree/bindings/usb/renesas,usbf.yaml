@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/usb/renesas,usbf.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Renesas USB Function
+
+maintainers:
+  - Gareth Williams <gareth.williams.jx@renesas.com>
+
+properties:
+  compatible:
+    const: renesas,usbf
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 2
+
+  interrupt-names:
+    items:
+      - const: epc
+      - const: usbf
+
+  clocks:
+    maxItems: 2
+
+  clock-names:
+    items:
+      - const: axi
+      - const: usbpm
+
+  renesas,sram-conf:
+      $ref: /schemas/types.yaml#/definitions/uint32-array
+      description: |
+          This property allows you to specify the SRAM allocated per
+          endpoint types, OR the SRAM allocated for each endpoint
+          individually. In the first instance, if you specify a 3 element
+          array, this specifies the number of USB packets per endpoint
+          /type/, for example -
+              renesas,sram-ep-packets = <4 3 0>;
+          will allocate 4 packets (of 512, implicitly) to the bulk endpoints
+          (first element); 3 packets (or whatever size the descriptor
+          specifies) to the interrupt endpoints, and the default value (2)
+          of packets to the isochronous endpoints.
+          In the second instance, you can specify the number of packets
+          per endpoint by passing an array of more than 3 elements
+              renesas,sram-conf = < 4 4 0 0 0     /* -bulk endpoints */
+                                    4 0 0 0       /* -int endpoints  */
+                                    0 0 0 0 0 0>; /* -iso endpoints  */
+          In this case, you can specify the size to the endpoints you
+          know are being used. Note that you can tie a memory configuration
+          for a particular gadget configuration; the driver will first
+          look for the property name concatenated with the currently
+          configured gadget before doing a fallback on the generic name.
+              renesas,sram-conf,g_ether = <6 2 0>;
+              renesas,sram-conf = <2 8 0>;
+          This is a valid declaration providing a configuration for the
+          RNDIS g_ether driver, and another configuration for any other
+          cases/gadget. The property may have the gadget-name appended
+          in the format [,<gadget-name>].
+
+  renesas,sram-size:
+      $ref: /schemas/types.yaml#/definitions/uint32
+      description: |
+          The renesas IP can be configured with variable amount of SRAM,
+          variable type/number of endpoints, and some of them disabled.
+          The sram-size property is the only one that cannot be inferred
+          by probing, so this properly allows you to specify it as per
+          your device configuration.
+          The SRAM size is just used to make sure you don't allocate too
+          much using the renesas,sram-conf property, it can be left out,
+          but doing so will prevent any warning from being emitted, and
+          that could result in silent failure. The ram size value is the
+          number of 32 bits words in SRAM, and NOT a byte value.
+
+  renesas,dma-threshold:
+      $ref: /schemas/types.yaml#/definitions/uint32
+      description: |
+          Specifies the packet size at below which we don't even attempt
+          to do a DMA transfer. The DMA introduces some latency as the IRQ
+          needs to be routed back to the driver, so a small packet size with DMA
+          might take longer to transfer than sending it using plain PIO.
+          The threshold is by default 64, however, it was not set using any
+          measurement, so the value probably should be measured using proper
+          empirical testing for the use you make of the driver.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - interrupt-names
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/clock/r9a06g032-sysctrl.h>
+
+    usbf: usbf@4001e000 {
+        compatible = "renesas,rzn1-usbf";
+        reg = <0x4001e000 0x2000>;
+        interrupt-names = "epc", "usbf";
+        interrupts = <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>;
+        clock-names = "axi", "usbpm";
+        clocks = <&sysctrl R9A06G032_HCLK_USBF>,
+                 <&sysctrl R9A06G032_HCLK_USBPM>;
+        renesas,sram-size = <5024>;
+        renesas,sram-conf,g_ether = <4 2 0>;
+        renesas,sram-conf,g_mass_storage = <8 8 0 0 0 0>;
+        status = "disabled";
+    };
