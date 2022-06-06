@@ -333,6 +333,8 @@ struct spi_nor_controller_ops {
 	ssize_t (*read)(struct spi_nor *nor, loff_t from, size_t len, u8 *buf);
 	ssize_t (*write)(struct spi_nor *nor, loff_t to, size_t len,
 			 const u8 *buf);
+	ssize_t (*write_mmap)(struct spi_nor *nor, loff_t to,
+			size_t len, const u_char *write_buf);
 	int (*erase)(struct spi_nor *nor, loff_t offs);
 };
 

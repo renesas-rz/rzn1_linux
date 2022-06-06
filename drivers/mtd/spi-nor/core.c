@@ -1959,6 +1959,21 @@ static int spi_nor_write(struct mtd_info *mtd, loff_t to, size_t len,
 	if (ret)
 		return ret;
 
+	/* Fast memory-mapped write support */
+	if (nor->controller_ops->write_mmap) {
+		ssize_t written;
+
+		ret = nor->controller_ops->write_mmap(nor, to, len, buf);
+		if (ret < 0)
+			goto write_err;
+
+		written = ret;
+		*retlen += written;
+		ret = spi_nor_wait_till_ready(nor);
+		spi_nor_unlock_and_unprep(nor);
+		return ret;
+	}
+
 	for (i = 0; i < len; ) {
 		ssize_t written;
 		loff_t addr = to + i;

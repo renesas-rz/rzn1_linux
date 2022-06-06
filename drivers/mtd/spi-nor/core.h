@@ -214,6 +214,8 @@ struct spi_nor_otp_ops {
 	int (*read)(struct spi_nor *nor, loff_t addr, size_t len, u8 *buf);
 	int (*write)(struct spi_nor *nor, loff_t addr, size_t len,
 		     const u8 *buf);
+	ssize_t (*write_mmap)(struct spi_nor *nor, loff_t to,
+			size_t len, const u_char *write_buf);
 	int (*lock)(struct spi_nor *nor, unsigned int region);
 	int (*erase)(struct spi_nor *nor, loff_t addr);
 	int (*is_locked)(struct spi_nor *nor, unsigned int region);
