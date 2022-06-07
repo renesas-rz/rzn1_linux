@@ -457,7 +457,10 @@ int stmmac_mdio_register(struct net_device *ndev)
 	if (mdio_bus_data->irqs)
 		memcpy(new_bus->irq, mdio_bus_data->irqs, sizeof(new_bus->irq));
 
-	new_bus->name = "stmmac";
+	if (dev->of_node)
+		new_bus->name = dev->of_node->full_name;
+	else
+		new_bus->name = "stmmac";
 
 	if (priv->plat->has_gmac4)
 		new_bus->probe_capabilities = MDIOBUS_C22_C45;
