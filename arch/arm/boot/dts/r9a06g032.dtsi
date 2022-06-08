@@ -457,6 +457,17 @@
 			power-domains = <&sysctrl>;
 		};
 
+		switch: ethswitch: eth-switch@44050000 {
+			compatible = "mtip,5pt_switch";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x44050000 0x10000>;
+			clocks = <&sysctrl R9A06G032_HCLK_SWITCH>,
+				 <&sysctrl R9A06G032_CLK_SWITCH>;
+			clock-names = "hclk", "pclk";
+			status = "disabled";
+		};
+
 		gic: interrupt-controller@44101000 {
 			compatible = "arm,gic-400", "arm,cortex-a7-gic";
 			interrupt-controller;
