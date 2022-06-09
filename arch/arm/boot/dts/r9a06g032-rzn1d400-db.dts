@@ -156,6 +156,13 @@
 	};
 };
 
+&sdio0 {
+	pinctrl-0 = <&pins_sdio0>;
+	pinctrl-names = "default";
+	/* Ext Board */
+	status = "okay";
+};
+
 /* Note, timer0 may be used by the Cortex M3 software */
 &timer1 {
 	status = "okay";
