@@ -23,10 +23,54 @@
 		serial0 = &uart0;
 		spi0 = &qspi0;
 	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		status = "okay";
+		brightness-levels = <0 50 100 150 200 255>;
+		default-brightness-level = <5>;
+		pwms = <&drm0 0 34000000>;
+		power-supply = <&reg_3v3>;
+	};
+
+	panel-rgb {
+		compatible = "newhaven,nhd-5.0-800480tf-atxl";
+		status = "okay";
+		no-hpd;
+		power-supply = <&reg_3v3>;
+
+		port {
+			display_in: endpoint {
+				remote-endpoint = <&drm_point>;
+			};
+		};
+	};
+
+	reg_3v3: regulator-reg-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
 };
 
 &ddrctrl {
 	status = "okay";
+};
+
+&drm0 {
+	status = "okay";
+	pinctrl-names = "default";
+	backlight-pwm-clock = <300>;
+	pinctrl-0 = <&pins_lcd>;
+	bus-width = <24>;
+	bits-per-pixel = <16>;
+
+	port {
+		drm_point: endpoint {
+			remote-endpoint = <&display_in>;
+		};
+	};
 };
 
 &gmac0 {
