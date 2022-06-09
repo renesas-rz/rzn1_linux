@@ -638,6 +638,19 @@
 			clocks = <&sysctrl R9A06G032_HCLK_TIMER1>;
 			status = "disabled";
 		};
+
+		drm0: drm@53004000 {
+			compatible = "digital-blocks,drm-rzn1";
+			reg = <0x53004000 0x1000>;
+			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SLCD>,
+				 <&sysctrl R9A06G032_HCLK_LCD>,
+				 <&sysctrl R9A06G032_HCLK_PG_I>;
+			clock-names = "lcd_eclk", "ahb", "lcd_pclk";
+			status = "disabled";
+			power-domains = <&sysctrl>;
+			#pwm-cells = <2>;
+		};
 	};
 
 	timer {
