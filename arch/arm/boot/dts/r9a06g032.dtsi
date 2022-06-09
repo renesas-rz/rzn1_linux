@@ -289,6 +289,28 @@
 			status = "okay";
 		};
 
+		sdio0: sdio@40100000 {
+			compatible = "arasan,sdhci-8.9a";
+			reg = <0x40100000 0x1000>;
+			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SDIO0>, <&sysctrl R9A06G032_HCLK_SDIO0>;
+			clock-names = "clk_xin", "clk_ahb";
+			no-1-8-v;
+			status = "disabled";
+		};
+
+		sdio1: sdio@40101000 {
+			compatible = "arasan,sdhci-8.9a";
+			reg = <0x40101000 0x1000>;
+			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SDIO1>, <&sysctrl R9A06G032_HCLK_SDIO1>;
+			clock-names = "clk_xin", "clk_ahb";
+			no-1-8-v;
+			status = "disabled";
+		};
+
 		gmac0: ethernet@44000000 {
 			compatible = "snps,dwmac-3.72a", "snps,dwmac";
 			reg = <0x44000000 0x2000>;
