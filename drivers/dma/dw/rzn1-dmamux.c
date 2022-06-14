@@ -5,6 +5,7 @@
  * Based on TI crossbar driver written by Peter Ujfalusi <peter.ujfalusi@ti.com>
  */
 #include <linux/bitops.h>
+#include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/of_dma.h>
 #include <linux/slab.h>
