@@ -341,6 +341,90 @@
 		};
 
 		/*
+		 * SPI 0-3 are Master; 4-5 are Slave. 4-16 bits data width
+		 * dw_apb-ssi is configured with 16*16 bits FIFO in both
+		 * directions.
+		 * 4 Chipselects for the master interfaces, 1 for slaves
+		 */
+		spi0: spi@50005000 {
+			compatible = "renesas,r9a06g032-spi", "renesas,rzn1-spi";
+			reg = <0x50005000 0x400>;
+			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SPI0>, <&sysctrl R9A06G032_HCLK_SPI0>;
+			clock-names = "ssi_clk", "pclk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <12500000>;
+			num-cs = <4>;
+			status = "disabled";
+		};
+
+		spi1: spi@50006000 {
+			compatible = "renesas,r9a06g032-spi", "renesas,rzn1-spi";
+			reg = <0x50006000 0x400>;
+			interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SPI1>, <&sysctrl R9A06G032_HCLK_SPI1>;
+			clock-names = "ssi_clk", "pclk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <12500000>;
+			num-cs = <4>;
+			status = "disabled";
+		};
+
+		spi2: spi@50007000 {
+			compatible = "renesas,r9a06g032-spi", "renesas,rzn1-spi";
+			reg = <0x50007000 0x400>;
+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SPI2>, <&sysctrl R9A06G032_HCLK_SPI2>;
+			clock-names = "ssi_clk", "pclk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <12500000>;
+			num-cs = <4>;
+			status = "disabled";
+		};
+
+		spi3: spi@50008000 {
+			compatible = "renesas,r9a06g032-spi", "renesas,rzn1-spi";
+			reg = <0x50008000 0x400>;
+			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SPI3>, <&sysctrl R9A06G032_HCLK_SPI3>;
+			clock-names = "ssi_clk", "pclk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <12500000>;
+			num-cs = <4>;
+			status = "disabled";
+		};
+
+		spi4: spi@50009000 {
+			compatible = "renesas,r9a06g032-spi", "renesas,rzn1-spi";
+			reg = <0x50009000 0x400>;
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SPI4>, <&sysctrl R9A06G032_HCLK_SPI4>;
+			clock-names = "ssi_clk", "pclk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <12500000>;
+			num-cs = <1>; /* Slave interface */
+			status = "disabled";
+		};
+
+		spi5: spi@5000a000 {
+			compatible = "renesas,r9a06g032-spi", "renesas,rzn1-spi";
+			reg = <0x5000a000 0x400>;
+			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_CLK_SPI5>, <&sysctrl R9A06G032_HCLK_SPI5>;
+			clock-names = "ssi_clk", "pclk";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <12500000>;
+			num-cs = <1>; /* Slave interface */
+			status = "disabled";
+		};
+
+		/*
 		 * The GPIO mapping to the corresponding pins is complicated,
 		 * see the hardware documentation for details.
 		 */
