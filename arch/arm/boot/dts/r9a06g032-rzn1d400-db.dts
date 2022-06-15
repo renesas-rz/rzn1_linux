@@ -163,6 +163,25 @@
 	status = "okay";
 };
 
+&spi0 {
+	pinctrl-0 = <&pins_spi0>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	cs-gpios = <&gpio2a 31 GPIO_ACTIVE_LOW>;
+
+	/* Ext Board: Serial (SPI) F-RAM device (FM25V10-G) */
+	fram: fm25@0 {
+		compatible = "atmel,at25";
+		reg = <0>;
+		/* Max freq supported by RZ/N1 */
+		spi-max-frequency = <12500000>;
+		size = <131072>;
+		address-width = <24>;
+		pagesize = <4096>;
+	};
+};
+
 /* Note, timer0 may be used by the Cortex M3 software */
 &timer1 {
 	status = "okay";
