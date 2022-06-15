@@ -216,6 +216,9 @@
 	pinctrl-names = "default";
 	status = "okay";
 
+	dmas =  <&dmamux 8 0 0 0 8 1>, <&dmamux 9 0 0 0 9 1>;
+	dma-names = "rx", "tx";
+
 	cs-gpios = <&gpio2a 31 GPIO_ACTIVE_LOW>;
 
 	/* Ext Board: Serial (SPI) F-RAM device (FM25V10-G) */
