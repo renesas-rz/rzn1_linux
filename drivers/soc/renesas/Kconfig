@@ -43,6 +43,8 @@ config ARCH_RMOBILE
 config ARCH_RZN1
 	bool
 	select ARM_AMBA
+	select PM
+	select PM_GENERIC_DOMAINS
 
 if ARM && ARCH_RENESAS
 
