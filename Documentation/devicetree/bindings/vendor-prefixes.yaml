@@ -299,6 +299,8 @@ patternProperties:
     description: Shenzhen Yagu Electronic Technology Co., Ltd.
   "^digi,.*":
     description: Digi International Inc.
+  "^digital-blocks,.*":
+    description: Digital Blocks, Inc.
   "^digilent,.*":
     description: Diglent, Inc.
   "^dioo,.*":
