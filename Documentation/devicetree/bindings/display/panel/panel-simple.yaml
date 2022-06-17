@@ -232,6 +232,8 @@ properties:
       - neweast,wjfh116008a
         # Newhaven Display International 480 x 272 TFT LCD panel
       - newhaven,nhd-4.3-480272ef-atxl
+        # Newhaven Display International 800 x 480 TFT LCD panel
+      - newhaven,nhd-5.0-800480tf-atxl
         # NLT Technologies, Ltd. 15.6" FHD (1920x1080) LVDS TFT LCD panel
       - nlt,nl192108ac18-02d
         # New Vision Display 7.0" 800 RGB x 480 TFT LCD panel
