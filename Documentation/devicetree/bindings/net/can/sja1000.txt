@@ -44,8 +44,11 @@ Optional properties:
 
 - nxp,no-comparator-bypass : Allows to disable the CAN input comparator.
 
-For further information, please have a look to the SJA1000 data sheet.
+- nxp,no-cdr: No clock divider register (CDR) support.
 
+- nxp,no-loopback: No HW loopback(HW doesn't see tx messages on rx).
+
+For further information, please have a look to the SJA1000 data sheet.
 Examples:
 
 can@3,100 {
