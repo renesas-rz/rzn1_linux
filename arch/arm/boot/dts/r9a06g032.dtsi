@@ -685,6 +685,30 @@
 			status = "disabled";
 		};
 
+		can0: can@52104000 {
+			compatible = "nxp,sja1000";
+			reg = <0x52104000 0x800>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_HCLK_CAN0>;
+			power-domains = <&sysctrl>;
+			nxp,no-cdr;
+			nxp,no-loopback;
+			status = "disabled";
+		};
+
+		can1: can@52105000 {
+			compatible = "nxp,sja1000";
+			reg = <0x52105000 0x800>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_HCLK_CAN1>;
+			power-domains = <&sysctrl>;
+			nxp,no-cdr;
+			nxp,no-loopback;
+			status = "disabled";
+		};
+
 		drm0: drm@53004000 {
 			compatible = "digital-blocks,drm-rzn1";
 			reg = <0x53004000 0x1000>;
