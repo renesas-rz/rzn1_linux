@@ -145,6 +145,22 @@ static inline void dwc_chan_disable(struct dw_dma *dw, struct dw_dma_chan *dwc)
 		cpu_relax();
 }
 
+static u32 bytes2block(struct dw_dma_chan *dwc, size_t bytes,
+		       unsigned int width, size_t *len)
+{
+	u32 block;
+
+	if ((bytes >> width) > dwc->block_size) {
+		block = dwc->block_size;
+		*len = block << width;
+	} else {
+		block = bytes >> width;
+		*len = bytes;
+	}
+
+	return block;
+}
+
 /*----------------------------------------------------------------------*/
 
 /* Perform single block transfer */
@@ -623,7 +639,7 @@ dwc_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
 	struct dma_slave_config	*sconfig = &dwc->dma_sconfig;
 	struct dw_desc		*prev;
 	struct dw_desc		*first;
-	u32			ctllo, ctlhi;
+	u32			ctllo;
 	u8			m_master = dwc->dws.m_master;
 	u8			lms = DWC_LLP_LMS(m_master);
 	dma_addr_t		reg;
@@ -670,11 +686,19 @@ slave_sg_todev_fill_desc:
 			if (!desc)
 				goto err_desc_get;
 
-			ctlhi = dw->bytes2block(dwc, len, mem_width, &dlen);
-
 			lli_write(desc, sar, mem);
 			lli_write(desc, dar, reg);
-			lli_write(desc, ctlhi, ctlhi);
+			/*
+			 * If the peripheral is flow controller, the transfer
+			 * must not be split into multiple blocks. The DMAC can
+			 * support any length transfers in this mode.
+			 */
+			if (!sconfig->device_fc || len <= 4095) {
+				lli_write(desc, ctlhi, bytes2block(dwc, len, mem_width, &dlen));
+			} else {
+				dlen = len;
+				lli_write(desc, ctlhi, 4095);
+			}
 			lli_write(desc, ctllo, ctllo | DWC_CTLL_SRC_WIDTH(mem_width));
 			desc->len = dlen;
 
@@ -718,12 +742,20 @@ slave_sg_fromdev_fill_desc:
 			if (!desc)
 				goto err_desc_get;
 
-			ctlhi = dw->bytes2block(dwc, len, reg_width, &dlen);
-
 			lli_write(desc, sar, reg);
 			lli_write(desc, dar, mem);
-			lli_write(desc, ctlhi, ctlhi);
-			mem_width = __ffs(data_width | mem);
+			/*
+			 * If the peripheral is flow controller, the transfer
+			 * must not be split into multiple blocks. The DMAC can
+			 * support any length transfers in this mode.
+			 */
+			if (!sconfig->device_fc || len <= 4095) {
+				lli_write(desc, ctlhi, bytes2block(dwc, len, reg_width, &dlen));
+			} else {
+				dlen = len;
+				lli_write(desc, ctlhi, 4095);
+			}
+			mem_width = __ffs(data_width | mem | dlen);
 			lli_write(desc, ctllo, ctllo | DWC_CTLL_DST_WIDTH(mem_width));
 			desc->len = dlen;
 
@@ -1250,13 +1282,6 @@ int do_dma_probe(struct dw_dma_chip *chip)
 	dw->dma.directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV) |
 			     BIT(DMA_MEM_TO_MEM);
 	dw->dma.residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
-
-	/*
-	 * For now there is no hardware with non uniform maximum block size
-	 * across all of the device channels, so we set the maximum segment
-	 * size as the block size found for the very first channel.
-	 */
-	dma_set_max_seg_size(dw->dma.dev, dw->chan[0].block_size);
 
 	err = dma_async_device_register(&dw->dma);
 	if (err)
