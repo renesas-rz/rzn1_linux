@@ -431,6 +431,16 @@ static int dw_spi_transfer_one(struct spi_controller *master,
 
 	transfer->effective_speed_hz = dws->current_freq;
 
+	if (transfer->bits_per_word == 8) {
+		dws->n_bytes = 1;
+		dws->dma_width = 1;
+	} else if (transfer->bits_per_word == 16) {
+		dws->n_bytes = 2;
+		dws->dma_width = 2;
+	} else {
+		return -EINVAL;
+	}
+
 	/* Check if current transfer is a DMA transaction */
 	if (master->can_dma && master->can_dma(master, spi, transfer))
 		dws->dma_mapped = master->cur_msg_mapped;

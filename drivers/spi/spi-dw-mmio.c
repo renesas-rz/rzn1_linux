@@ -6,6 +6,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/dmaengine.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -20,6 +21,7 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <linux/platform_data/dma-dw.h>
 
 #include "spi-dw.h"
 
@@ -31,6 +33,319 @@ struct dw_spi_mmio {
 	struct clk     *pclk;
 	void           *priv;
 	struct reset_control *rstc;
+	struct device  *dw_spi_dev;
+	struct delayed_work	work;
+	struct workqueue_struct *work_queue;
+};
+
+#define RX_BUSY		0
+#define TX_BUSY		1
+
+static int mmio_spi_dma_init(struct device *dev, struct dw_spi *dws)
+{
+	int ret;
+
+	/* RX */
+	dws->rxchan = dma_request_slave_channel(dev, "rx");
+	if (IS_ERR(dws->rxchan))
+		return PTR_ERR(dws->rxchan);
+
+	dev_info(dev, "DMA channel RX %s\n", dma_chan_name(dws->rxchan));
+	dws->master->dma_rx = dws->rxchan;
+
+	/* TX */
+	dws->txchan = dma_request_slave_channel(dev, "tx");
+	if (IS_ERR(dws->txchan)) {
+		ret = PTR_ERR(dws->txchan);
+		goto err_rx;
+	}
+
+	dev_info(dev, "DMA channel TX %s\n", dma_chan_name(dws->txchan));
+	dws->master->dma_tx = dws->txchan;
+
+	dws->dma_inited = 1;
+
+	return 0;
+
+err_rx:
+	dma_release_channel(dws->rxchan);
+	return ret;
+}
+
+static void mmio_spi_dma_exit(struct dw_spi *dws)
+{
+	if (!dws->dma_inited)
+		return;
+
+	dmaengine_terminate_sync(dws->txchan);
+	dma_release_channel(dws->txchan);
+
+	dmaengine_terminate_sync(dws->rxchan);
+	dma_release_channel(dws->rxchan);
+}
+
+static bool mmio_spi_can_dma(struct spi_controller *master,
+			     struct spi_device *spi, struct spi_transfer *xfer)
+{
+	struct dw_spi *dws = spi_controller_get_devdata(master);
+
+	if (!dws->dma_inited)
+		return false;
+
+	return xfer->len > dws->fifo_len;
+}
+
+static enum dma_slave_buswidth convert_dma_width(u32 dma_width)
+{
+	if (dma_width == 1)
+		return DMA_SLAVE_BUSWIDTH_1_BYTE;
+	else if (dma_width == 2)
+		return DMA_SLAVE_BUSWIDTH_2_BYTES;
+
+	return DMA_SLAVE_BUSWIDTH_UNDEFINED;
+}
+
+static void dma_tx_complete_work(struct work_struct *work)
+{
+	struct dw_spi_mmio *dwsmmio =
+		container_of(work, struct dw_spi_mmio, work.work);
+	struct dw_spi *dws = &dwsmmio->dws;
+
+	spi_finalize_current_transfer(dws->master);
+}
+
+/*
+ * dws->dma_chan_busy is set before the dma transfer starts, callback for tx
+ * channel will clear a corresponding bit.
+ */
+static void dw_spi_dma_tx_done(void *arg)
+{
+	struct dw_spi *dws = arg;
+	struct dw_spi_mmio *dwsmmio = dws->priv;
+	u32 words_to_tx;
+	u32 delay;
+
+	clear_bit(TX_BUSY, &dws->dma_chan_busy);
+	if (test_bit(RX_BUSY, &dws->dma_chan_busy))
+		return;
+
+	/*
+	 * Although the DMA is complete, the SPI transaction on the wire is not!
+	 * DMA writes to the SPI FIFO and so we need to wait until the FIFO has
+	 * been drained and shifted out.
+	 */
+	words_to_tx = dw_readl(dws, DW_SPI_TXFLR);
+
+	/* Calc time until the data has been put on the wire (in us) */
+	delay = 1000000 / (dws->max_freq / dw_readl(dws, DW_SPI_BAUDR));
+	delay *= words_to_tx;
+	delay *= (8 * dws->dma_width) + 2; /* 8 bits per byte + 2 for framing */
+
+	/*
+	 * At 500KHz SPI clock, this delay is 320us and we are in atomic
+	 * context. Therefore, we defer this to a workqueue.
+	 * Arbitrary threshold where it is better to just delay.
+	 */
+	if (delay <= 20) {
+		udelay(delay);
+		spi_finalize_current_transfer(dws->master);
+	} else {
+		queue_delayed_work(dwsmmio->work_queue,
+				   &dwsmmio->work, usecs_to_jiffies(delay) + 1);
+	}
+}
+
+static struct dma_async_tx_descriptor *dw_spi_dma_prepare_tx(struct dw_spi *dws,
+							     struct spi_transfer *xfer)
+{
+	struct dma_slave_config txconf = {
+		.direction = DMA_MEM_TO_DEV,
+		.dst_addr = dws->dma_addr,
+		.dst_maxburst = dws->fifo_len / 2,
+		.dst_addr_width = convert_dma_width(dws->dma_width),
+		.device_fc = false,
+	};
+	struct dma_async_tx_descriptor *txdesc;
+	u32 val = 0;
+
+	if (!xfer->tx_buf)
+		return NULL;
+
+#ifdef CONFIG_SPI_DW_RZN1
+	txconf.device_fc = true;
+
+	/* The DMAC uses the maxburst size if the transfer is bigger than it */
+	if (txconf.dst_maxburst == 1)
+		val |= SPI_xDMACR_1_WORD_BURST;
+	else if (txconf.dst_maxburst == 4)
+		val |= SPI_xDMACR_4_WORD_BURST;
+	else if (txconf.dst_maxburst == 8)
+		val |= SPI_xDMACR_8_WORD_BURST;
+	dw_writel(dws, DW_SPI_TDMACR, val);
+
+	/* Block size */
+	val |= (xfer->len / dws->dma_width) << SPI_xDMACR_BLK_SIZE_OFFSET;
+
+	val |= SPI_xDMACR_DMA_EN;
+	dw_writel(dws, DW_SPI_TDMACR, val);
+#endif
+
+	dmaengine_slave_config(dws->txchan, &txconf);
+
+	txdesc = dmaengine_prep_slave_sg(dws->txchan,
+					 xfer->tx_sg.sgl,
+					 xfer->tx_sg.nents,
+					 DMA_MEM_TO_DEV,
+					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	if (!txdesc)
+		return NULL;
+
+	txdesc->callback = dw_spi_dma_tx_done;
+	txdesc->callback_param = dws;
+
+	return txdesc;
+}
+
+/*
+ * dws->dma_chan_busy is set before the dma transfer starts, callback for rx
+ * channel will clear a corresponding bit.
+ */
+static void dw_spi_dma_rx_done(void *arg)
+{
+	struct dw_spi *dws = arg;
+
+	clear_bit(RX_BUSY, &dws->dma_chan_busy);
+	if (test_bit(TX_BUSY, &dws->dma_chan_busy))
+		return;
+
+	spi_finalize_current_transfer(dws->master);
+}
+
+static struct dma_async_tx_descriptor *dw_spi_dma_prepare_rx(struct dw_spi *dws,
+							     struct spi_transfer *xfer)
+{
+	struct dma_slave_config rxconf = {
+		.direction = DMA_DEV_TO_MEM,
+		.src_addr = dws->dma_addr,
+		.src_maxburst = dws->fifo_len / 2,
+		.src_addr_width = convert_dma_width(dws->dma_width),
+		.device_fc = false,
+	};
+	struct dma_async_tx_descriptor *rxdesc;
+	u32 val = 0;
+
+	if (!xfer->rx_buf)
+		return NULL;
+
+#ifdef CONFIG_SPI_DW_RZN1
+	rxconf.device_fc = true;
+
+	/* The DMAC uses the maxburst size if the transfer is bigger than it */
+	if (rxconf.src_maxburst == 1)
+		val |= SPI_xDMACR_1_WORD_BURST;
+	else if (rxconf.src_maxburst == 4)
+		val |= SPI_xDMACR_4_WORD_BURST;
+	else if (rxconf.src_maxburst == 8)
+		val |= SPI_xDMACR_8_WORD_BURST;
+
+	dw_writel(dws, DW_SPI_RDMACR, val);
+
+	/* Block size */
+	val |= (xfer->len / dws->dma_width) << SPI_xDMACR_BLK_SIZE_OFFSET;
+
+	val |= SPI_xDMACR_DMA_EN;
+	dw_writel(dws, DW_SPI_RDMACR, val);
+#endif
+
+	dmaengine_slave_config(dws->rxchan, &rxconf);
+
+	rxdesc = dmaengine_prep_slave_sg(dws->rxchan,
+					 xfer->rx_sg.sgl,
+					 xfer->rx_sg.nents,
+					 DMA_DEV_TO_MEM,
+					 DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
+	if (!rxdesc)
+		return NULL;
+
+	rxdesc->callback = dw_spi_dma_rx_done;
+	rxdesc->callback_param = dws;
+
+	return rxdesc;
+}
+
+static int mmio_spi_dma_setup(struct dw_spi *dws, struct spi_transfer *xfer)
+{
+	u16 dma_ctrl = 0;
+	u32 cr0;
+
+	/* watermarks for initiating DMA requests, both set to half the FIFO */
+	dw_writel(dws, DW_SPI_DMARDLR, (dws->fifo_len / 2) - 1);
+	dw_writel(dws, DW_SPI_DMATDLR, dws->fifo_len / 2);
+
+	/* Always enable tx */
+	dma_ctrl |= SPI_DMA_TDMAE;
+	if (xfer->rx_buf)
+		dma_ctrl |= SPI_DMA_RDMAE;
+	dw_writel(dws, DW_SPI_DMACR, dma_ctrl);
+
+	/* If tx only, set transfer mode to avoid data in the rx fifo */
+	cr0 = dw_readl(dws, DW_SPI_CTRLR0);
+	cr0 &= ~SPI_TMOD_MASK;
+	if (!xfer->rx_buf)
+		cr0 |= (SPI_TMOD_TO << SPI_TMOD_OFFSET);
+	else
+		cr0 |= (SPI_TMOD_TR << SPI_TMOD_OFFSET);
+	dw_writel(dws, DW_SPI_CTRLR0, cr0);
+
+	return 0;
+}
+
+static int mmio_spi_dma_transfer(struct dw_spi *dws, struct spi_transfer *xfer)
+{
+	struct dma_async_tx_descriptor *txdesc, *rxdesc;
+
+	/* Prepare the TX dma transfer */
+	txdesc = dw_spi_dma_prepare_tx(dws, xfer);
+
+	/* Prepare the RX dma transfer */
+	rxdesc = dw_spi_dma_prepare_rx(dws, xfer);
+
+	/* rx must be started before tx due to spi instinct */
+	if (rxdesc) {
+		set_bit(RX_BUSY, &dws->dma_chan_busy);
+		dmaengine_submit(rxdesc);
+		dma_async_issue_pending(dws->rxchan);
+	}
+
+	if (txdesc) {
+		set_bit(TX_BUSY, &dws->dma_chan_busy);
+		dmaengine_submit(txdesc);
+		dma_async_issue_pending(dws->txchan);
+	}
+
+	return 1;
+}
+
+static void mmio_spi_dma_stop(struct dw_spi *dws)
+{
+	if (test_bit(TX_BUSY, &dws->dma_chan_busy)) {
+		dmaengine_terminate_sync(dws->txchan);
+		clear_bit(TX_BUSY, &dws->dma_chan_busy);
+	}
+
+	if (test_bit(RX_BUSY, &dws->dma_chan_busy)) {
+		dmaengine_terminate_sync(dws->rxchan);
+		clear_bit(RX_BUSY, &dws->dma_chan_busy);
+	}
+}
+
+static const struct dw_spi_dma_ops mmio_dma_ops = {
+	.dma_init	= mmio_spi_dma_init,
+	.dma_exit	= mmio_spi_dma_exit,
+	.dma_setup	= mmio_spi_dma_setup,
+	.can_dma	= mmio_spi_can_dma,
+	.dma_transfer	= mmio_spi_dma_transfer,
+	.dma_stop	= mmio_spi_dma_stop,
 };
 
 #define MSCC_CPU_SYSTEM_CTRL_GENERAL_CTRL	0x24
@@ -309,11 +624,27 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 			goto out;
 	}
 
+	dwsmmio->dw_spi_dev = &pdev->dev;
+	dws->priv = dwsmmio;
+	dws->paddr = (unsigned long)(mem->start);
+	dws->dma_ops = &mmio_dma_ops;
+
+	INIT_DELAYED_WORK(&dwsmmio->work, dma_tx_complete_work);
+	dwsmmio->work_queue = create_singlethread_workqueue(dev_name(&pdev->dev));
+	if (!dwsmmio->work_queue) {
+		dev_err(&pdev->dev, "failed to create workqueue\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
 	pm_runtime_enable(&pdev->dev);
 
 	ret = dw_spi_add_host(&pdev->dev, dws);
 	if (ret)
 		goto out;
+
+	/* DMA requires tx whilst doing an rx */
+	dws->master->flags |= SPI_MASTER_MUST_TX;
 
 	platform_set_drvdata(pdev, dwsmmio);
 	return 0;

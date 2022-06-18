@@ -268,6 +268,15 @@ config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
 	depends on HAS_IOMEM
 
+config SPI_DW_RZN1
+	bool "Implement Renesas RZ/N1 DMA"
+	depends on SPI_DW_MMIO
+	depends on ARCH_RZN1
+	default y
+	help
+	  Renesas RZ/N1 has extra registers for DMA and the SPI Controller is
+	  designated as the flow controller.
+
 config SPI_DW_BT1
 	tristate "Baikal-T1 SPI driver for DW SPI core"
 	depends on MIPS_BAIKAL_T1 || COMPILE_TEST

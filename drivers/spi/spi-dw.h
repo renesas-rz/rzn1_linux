@@ -40,6 +40,10 @@
 #define DW_SPI_RX_SAMPLE_DLY		0xf0
 #define DW_SPI_CS_OVERRIDE		0xf4
 
+/* RZ/N1 special registers */
+#define DW_SPI_TDMACR			0x100
+#define DW_SPI_RDMACR			0x104
+
 /* Bit fields in CTRLR0 */
 #define SPI_DFS_OFFSET			0
 #define SPI_DFS_MASK			GENMASK(3, 0)
@@ -114,6 +118,16 @@
 #define SPI_GET_BYTE(_val, _idx) \
 	((_val) >> (BITS_PER_BYTE * (_idx)) & 0xff)
 
+/* RZ/N1 special registers */
+#define SPI_xDMACR_BLK_SIZE_OFFSET	3
+#define SPI_xDMACR_DMA_EN		(1 << 0)
+#define SPI_xDMACR_1_WORD_BURST		BIT(0)
+#define SPI_xDMACR_4_WORD_BURST		BIT(1)
+#define SPI_xDMACR_8_WORD_BURST		BIT(2)
+
+/* TX RX interrupt level threshold, max can be 256 */
+#define SPI_INT_THRESHOLD		32
+
 enum dw_ssi_type {
 	SSI_MOTO_SPI = 0,
 	SSI_TI_SSP,
@@ -171,6 +185,7 @@ struct dw_spi {
 	u8			buf[SPI_BUF_SIZE];
 	int			dma_mapped;
 	u8			n_bytes;	/* current is a 1/2 bytes op */
+	u32			dma_width;
 	irqreturn_t		(*transfer_handler)(struct dw_spi *dws);
 	u32			current_freq;	/* frequency in hz */
 	u32			cur_rx_sample_dly;
@@ -180,6 +195,7 @@ struct dw_spi {
 	struct spi_controller_mem_ops mem_ops;
 
 	/* DMA info */
+	int			dma_inited;
 	struct dma_chan		*txchan;
 	u32			txburst;
 	struct dma_chan		*rxchan;
@@ -189,7 +205,11 @@ struct dw_spi {
 	dma_addr_t		dma_addr; /* phy address of the Data register */
 	const struct dw_spi_dma_ops *dma_ops;
 	struct completion	dma_completion;
+	void			*dma_tx;
+	void			*dma_rx;
 
+	/* Bus interface info */
+	void			*priv;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs;
 	struct debugfs_regset32 regset;
