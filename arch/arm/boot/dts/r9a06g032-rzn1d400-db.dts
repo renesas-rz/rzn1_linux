@@ -54,6 +54,20 @@
 	};
 };
 
+&can0 {
+	pinctrl-0 = <&pins_can0>;
+	pinctrl-names = "default";
+	/* Ext Board */
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-0 = <&pins_can1>;
+	pinctrl-names = "default";
+	/* Ext Board */
+	status = "okay";
+};
+
 &ddrctrl {
 	status = "okay";
 };
