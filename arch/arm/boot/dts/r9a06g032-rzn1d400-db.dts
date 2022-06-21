@@ -33,6 +33,53 @@
 		power-supply = <&reg_3v3>;
 	};
 
+	leds: leds {
+		compatible = "gpio-leds";
+
+		led_1 {
+			label = "pl_gpio92";
+			gpios = <&gpio1b 23 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu0";
+		};
+		led_2 {
+			label = "pl_gpio93";
+			gpios = <&gpio1b 24 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "cpu1";
+		};
+		pca0 {
+			label = "pca0";
+			gpios = <&pca9698 0 GPIO_ACTIVE_HIGH>;
+		};
+		pca1 {
+			label = "pca1";
+			gpios = <&pca9698 1 GPIO_ACTIVE_HIGH>;
+		};
+		pca2 {
+			label = "pca2";
+			gpios = <&pca9698 2 GPIO_ACTIVE_HIGH>;
+		};
+		pca3 {
+			label = "pca3";
+			gpios = <&pca9698 3 GPIO_ACTIVE_HIGH>;
+		};
+		pca4 {
+			label = "pca4";
+			gpios = <&pca9698 4 GPIO_ACTIVE_HIGH>;
+		};
+		pca5 {
+			label = "pca5";
+			gpios = <&pca9698 5 GPIO_ACTIVE_HIGH>;
+		};
+		pca6 {
+			label = "pca6";
+			gpios = <&pca9698 6 GPIO_ACTIVE_HIGH>;
+		};
+		pca7 {
+			label = "pca7";
+			gpios = <&pca9698 7 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
 	panel-rgb {
 		compatible = "newhaven,nhd-5.0-800480tf-atxl";
 		status = "okay";
