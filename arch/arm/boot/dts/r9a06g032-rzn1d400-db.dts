@@ -147,6 +147,63 @@
 			<GPIOA_IRQ(2, 26) &gic GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>; /* pin 148: TouchSCRN_IRQ */
 };
 
+&i2c1 {
+	pinctrl-0 = <&pins_i2c1>;
+	pinctrl-names = "default";
+	status = "okay";
+	clock-frequency = <400000>;
+
+	pca9698: gpio@20 {
+		compatible = "nxp,pca9698";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-bank-name="pca";
+
+		/* gpio-hogs to enable access to the EEPROM */
+		eeprom_ctrl0 {
+			gpio-hog;
+			gpios = <16 0>;
+			output-high;
+			line-name = "eeprom-ctrl0-gpio";
+		};
+		eeprom_ctrl1 {
+			gpio-hog;
+			gpios = <17 0>;
+			output-low;
+			line-name = "eeprom-ctrl1-gpio";
+		};
+		eeprom_ctrl2 {
+			gpio-hog;
+			gpios = <18 0>;
+			output-low;
+			line-name = "eeprom-ctrl2-gpio";
+		};
+	};
+
+	lm75: lm75@49 {
+		/* Ext Board: Temperature sensor */
+		compatible = "lm75";
+		reg = <0x49>;
+	};
+
+	at24@50 {
+		compatible = "at24,24c64";
+		pagesize = <32>;
+		reg = <0x50>;
+	};
+
+	polytouch: edt-ft5x06@38 {
+		/* Ext Board: touch sensor on LCD */
+		compatible = "edt,edt-ft5306", "edt,edt-ft5x06";
+		reg = <0x38>;
+		interrupt-parent = <&gpio2a>;
+		interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+		touchscreen-size-x = <800>;
+		touchscreen-size-y = <480>;
+	};
+};
+
 &qspi0 {
 	pinctrl-0 = <&pins_qspi0>;
 	pinctrl-names = "default";
