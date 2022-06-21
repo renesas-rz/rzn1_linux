@@ -363,6 +363,18 @@
 	status = "okay";
 };
 
+&uart2 {
+	pinctrl-0 = <&pins_uart2>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&uart3 {
+	pinctrl-0 = <&pins_uart3>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 &usbf {
 	status = "okay";
 };
