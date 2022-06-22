@@ -175,6 +175,7 @@
 			compatible = "ethernet-phy-id0141.0dd4",
 				     "ethernet-phy-ieee802.3-c22";
 			device_type = "ethernet-phy";
+			phy-mode = "rgmii-id";
 			reg = <8>;
 			/* Set LED0 as active low link status, LED2 as interrupt */
 			marvell,reg-init = <3 16 0 0x1010 3 18 0 0x4980>;
