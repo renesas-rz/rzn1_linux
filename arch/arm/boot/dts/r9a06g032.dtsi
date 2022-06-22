@@ -130,6 +130,14 @@
 			status = "disabled";
 		};
 
+		ipc: mailbox@4000b000 {
+		    compatible = "arm,pl320", "arm,primecell";
+		    reg = <0x4000b000 0x1000>;
+		    interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>;
+		    clocks = <&sysctrl R9A06G032_CLK_FW>;
+		    clock-names = "apb_pclk";
+		};
+
 		sysctrl: system-controller@4000c000 {
 			compatible = "renesas,r9a06g032-sysctrl";
 			reg = <0x4000c000 0x1000>;
