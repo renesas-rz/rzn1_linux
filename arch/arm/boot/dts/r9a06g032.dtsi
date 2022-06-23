@@ -369,6 +369,17 @@
 			status = "disabled";
 		};
 
+		nandc: nand-controller@40102000 {
+			compatible = "renesas,r9a06g032-nandc", "renesas,rzn1-nandc";
+			reg = <0x40102000 0x2000>;
+			interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysctrl R9A06G032_HCLK_NAND>, <&sysctrl R9A06G032_CLK_NAND>;
+			clock-names = "hclk", "eclk";
+			power-domains = <&sysctrl>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
 		dma0: dma-controller@40104000 {
 			compatible = "renesas,r9a06g032-dma", "renesas,rzn1-dma";
 			reg = <0x40104000 0x1000>;
