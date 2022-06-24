@@ -528,6 +528,8 @@ patternProperties:
   "^img,.*":
     description: Imagination Technologies Ltd.
   "^imi,.*":
+    description: MoreThanIP
+  "^mtip,.*":
     description: Integrated Micro-Electronics Inc.
   "^incircuit,.*":
     description: In-Circuit GmbH
