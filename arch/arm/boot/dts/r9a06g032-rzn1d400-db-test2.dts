@@ -1,0 +1,57 @@
+/*
+ * Device Tree Source for the Renesas RZ/N1D Demo Board
+ *
+ * This DTS is only used for testing purposes, it should not normally be used.
+ * The UARTs that are enabled are accessed via the PMOD connectors and so need
+ * the corresponding PinMux changes. It also needs the PMOD switch setting.
+ */
+
+#include "r9a06g032-db-both-gmacs.dts"
+#include "r9a06g032-db-pinmux-test2.dts"
+
+&can0 {
+	/* Ext Board */
+	status = "okay";
+};
+&i2c1 {
+	clock-frequency = <100000>;
+};
+&qspi0 {
+	flash: mx25l25635@0 {
+		spi-rx-bus-width = <2>;
+		renesas,rzn1-read-cmd = <0x3b 8 0>;
+	};
+};
+&spi0 {
+	/* Ext Board: Serial (SPI) F-RAM device (FM25V10-G) */
+	fram: fm25@0 {
+		compatible = "atmel,at25";
+		reg = <0>;
+		/* Max freq supported by RZ/N1 */
+		spi-max-frequency = <500000>;
+		size = <131072>;
+		address-width = <24>;
+		pagesize = <4096>;
+	};
+};
+
+&timer0 {
+	status = "okay";
+	/* Enable the /25 prescaler only on the 16-bit timers */
+	renesas,clk-prescaler = <1 1 1 1 1 1 0 0>;
+	renesas,timer-rating = <150 150 150 150 150 150 460 460>;
+};
+
+&uart5 {
+	/* PMOD1 on Ext Board CN2 - PinMux need changing for this */
+	status = "okay";
+	dmas =  <&dmamux 4 0 0 0 4 1>, <&dmamux 5 0 0 0 5 1>;
+	dma-names = "rx", "tx";
+};
+
+&uart6 {
+	/* PMOD2 on Ext Board CN3 - PinMux need changing for this */
+	status = "okay";
+	dmas =  <&dmamux 6 0 0 0 6 1>, <&dmamux 7 0 0 0 7 1>;
+	dma-names = "rx", "tx";
+};

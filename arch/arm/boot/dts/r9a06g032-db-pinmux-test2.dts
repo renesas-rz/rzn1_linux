@@ -1,0 +1,52 @@
+﻿/*
+ * PinMux changes used to test PMOD connectors configured as UARTs
+ */
+
+&pinctrl {
+	pins_gpio1: pins_gpio1 {
+		pinmux = <
+			RZN1_PINMUX(88, RZN1_FUNC_GPIO)	/* GPIO1B[19] */
+			RZN1_PINMUX(89, RZN1_FUNC_GPIO)	/* GPIO1B[20] */
+			RZN1_PINMUX(90, RZN1_FUNC_GPIO)	/* GPIO1B[21] */
+			RZN1_PINMUX(91, RZN1_FUNC_GPIO)	/* GPIO1B[22] */
+			RZN1_PINMUX(92, RZN1_FUNC_GPIO)	/* GPIO1B[23] */
+			RZN1_PINMUX(93, RZN1_FUNC_GPIO)	/* GPIO1B[24] */
+			RZN1_PINMUX(94, RZN1_FUNC_GPIO)	/* Eth PHY Reset (GPIO1B[25]) */
+			RZN1_PINMUX(111, RZN1_FUNC_GPIO)	/* GPIO1A[21] for switch */
+			RZN1_PINMUX(117, RZN1_FUNC_GPIO)	/* GPIO1A[27] */
+			RZN1_PINMUX(118, RZN1_FUNC_GPIO)	/* Eth3 IRQ (GPIO1A[28]) */
+			RZN1_PINMUX(154, RZN1_FUNC_GPIO)	/* MDC PHY1 GPIO (GPIO1B[30]) */
+			RZN1_PINMUX(155, RZN1_FUNC_GPIO)	/* MDIO PHY1 GPIO (GPIO1B[31]) */
+		>;
+	};
+	pins_switch: pins_switch {
+		pinmux = <
+			RZN1_PINMUX(114, RZN1_FUNC_MAC_MTIP_SWITCH)	/* SWITCH_MII_LINK[2] */
+		>;
+	};
+	pins_uart5: pins_uart5 {
+		pinmux = <
+			RZN1_PINMUX(80, RZN1_FUNC_UART5)	/* UART5_TXD */
+			RZN1_PINMUX(81, RZN1_FUNC_UART5)	/* UART5_RXD */
+			RZN1_PINMUX(82, RZN1_FUNC_UART5)	/* UART5_RTS_N */
+			RZN1_PINMUX(83, RZN1_FUNC_UART5)	/* UART5_CTS_N */
+		>;
+	};
+	pins_uart6: pins_uart6 {
+		pinmux = <
+			RZN1_PINMUX(84, RZN1_FUNC_UART6)	/* UART6_TXD */
+			RZN1_PINMUX(85, RZN1_FUNC_UART6)	/* UART6_RXD */
+			RZN1_PINMUX(86, RZN1_FUNC_UART6)	/* UART6_RTS_N */
+			RZN1_PINMUX(87, RZN1_FUNC_UART6)	/* UART6_CTS_N */
+		>;
+	};
+};
+
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart5>;
+};
+&uart6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart6>;
+};
