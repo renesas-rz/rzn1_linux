@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2016-2022 Renesas Electronics Europe Ltd
+ *
+ * Device Tree Source for the RZN1D Demo Board
+ * This dts is for use when the Cortex M3 controls GMAC1, the 5-Port Switch
+ * and the RGMII/GMII Converters for the ports connected to the Switch.
+ */
+
+/dts-v1/;
+
+#include "r9a06g032-rzn1d400-db.dts"
+
+&i2c1 {
+	gpio@20 {
+		/delete-node/ eeprom_ctrl0;
+		/delete-node/ eeprom_ctrl1;
+		/delete-node/ eeprom_ctrl2;
+	};
+
+	/delete-node/ at24@50;
+};
+
+&leds {
+	/delete-node/ led_1;
+	/delete-node/ led_2;
+};
+
+/delete-node/ &gpio1;
