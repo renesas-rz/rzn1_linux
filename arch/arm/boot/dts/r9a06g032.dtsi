@@ -233,6 +233,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART0>, <&sysctrl R9A06G032_HCLK_UART0>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
@@ -244,6 +245,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART1>, <&sysctrl R9A06G032_HCLK_UART1>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
@@ -255,6 +257,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART2>, <&sysctrl R9A06G032_HCLK_UART2>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
@@ -266,6 +269,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART3>, <&sysctrl R9A06G032_HCLK_UART3>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
@@ -277,6 +281,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART4>, <&sysctrl R9A06G032_HCLK_UART4>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
@@ -288,6 +293,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART5>, <&sysctrl R9A06G032_HCLK_UART5>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
@@ -299,6 +305,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART6>, <&sysctrl R9A06G032_HCLK_UART6>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
@@ -310,6 +317,7 @@
 			reg-io-width = <4>;
 			clocks = <&sysctrl R9A06G032_CLK_UART7>, <&sysctrl R9A06G032_HCLK_UART7>;
 			clock-names = "baudclk", "apb_pclk";
+			power-domains = <&sysctrl>;
 			status = "disabled";
 		};
 
