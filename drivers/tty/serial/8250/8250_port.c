@@ -2680,7 +2680,7 @@ static unsigned int serial8250_get_baud_rate(struct uart_port *port,
 		max = (port->uartclk + tolerance) / 4;
 	} else {
 		min = port->uartclk / 16 / UART_DIV_MAX;
-		max = (port->uartclk + tolerance) / 16;
+		max = port->uartclk;
 	}
 
 	/*
