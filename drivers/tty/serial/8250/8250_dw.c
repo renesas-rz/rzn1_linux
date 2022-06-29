@@ -643,6 +643,26 @@ static int dw8250_probe(struct platform_device *pdev)
 		up->dma = &data->data.dma;
 	}
 
+	if (data->pdata->quirks & DW_UART_QUIRK_IS_DMA_FC) {
+		/*
+		 * When the 'char timeout' irq fires because no more data has
+		 * been received in some time, the 8250 driver stops the DMA.
+		 * However, if the DMAC has been setup to write more data to mem
+		 * than is read from the UART FIFO, the data will *not* be
+		 * written to memory.
+		 * Therefore, we limit the width of writes to mem so that it is
+		 * the same amount of data as read from the FIFO. You can use
+		 * anything less than or equal, but same size is optimal
+		 */
+		data->data.dma.rxconf.dst_addr_width = p->fifosize / 4;
+
+		/*
+		 * Unless you set the maxburst to 1, if you send only 1 char, it
+		 * doesn't get transmitted
+		 */
+		data->data.dma.txconf.dst_maxburst = 1;
+	}
+
 	data->data.line = serial8250_register_8250_port(up);
 	if (data->data.line < 0)
 		return data->data.line;
