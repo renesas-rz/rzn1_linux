@@ -21,7 +21,11 @@
 
 	aliases {
 		serial0 = &uart0;
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
 		spi0 = &qspi0;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
 	};
 
 	backlight: backlight {
