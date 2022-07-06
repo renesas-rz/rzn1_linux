@@ -88,6 +88,36 @@ static unsigned int rzn1_rtc_tm_to_wday(struct rtc_time *tm)
 	return (days + 4) % 7;
 }
 
+static void bcd2tm(struct rtc_time *tm)
+{
+	tm->tm_sec = bcd2bin(tm->tm_sec);
+	tm->tm_min = bcd2bin(tm->tm_min);
+	tm->tm_hour = bcd2bin(tm->tm_hour);
+	tm->tm_wday = bcd2bin(tm->tm_wday);
+	tm->tm_mday = bcd2bin(tm->tm_mday);
+	tm->tm_mon = bcd2bin(tm->tm_mon) - 1;
+	/* epoch == 1900 */
+	tm->tm_year = bcd2bin(tm->tm_year) + 100;
+}
+
+/* this hardware doesn't support "don't care" alarm fields */
+static int tm2bcd(struct rtc_time *tm)
+{
+	if (rtc_valid_tm(tm) != 0)
+		return -EINVAL;
+
+	tm->tm_sec = bin2bcd(tm->tm_sec);
+	tm->tm_min = bin2bcd(tm->tm_min);
+	tm->tm_hour = bin2bcd(tm->tm_hour);
+	tm->tm_wday = bin2bcd(rzn1_rtc_tm_to_wday(tm));
+	tm->tm_mday = bin2bcd(tm->tm_mday);
+	tm->tm_mon = bin2bcd(tm->tm_mon + 1);
+	/* epoch == 1900 */
+	tm->tm_year = bin2bcd(tm->tm_year - 100);
+
+	return 0;
+}
+
 static int rzn1_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	struct rzn1_rtc *rtc = dev_get_drvdata(dev);
@@ -106,14 +136,7 @@ static int rzn1_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	if (tm->tm_sec != secs)
 		rzn1_rtc_get_time_snapshot(rtc, tm);
 
-	tm->tm_sec = bcd2bin(tm->tm_sec);
-	tm->tm_min = bcd2bin(tm->tm_min);
-	tm->tm_hour = bcd2bin(tm->tm_hour);
-	tm->tm_wday = bcd2bin(tm->tm_wday);
-	tm->tm_mday = bcd2bin(tm->tm_mday);
-	tm->tm_mon = bcd2bin(tm->tm_mon);
-	tm->tm_year = bcd2bin(tm->tm_year);
-
+	bcd2tm(tm);
 	return 0;
 }
 
@@ -123,13 +146,8 @@ static int rzn1_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	u32 val;
 	int ret;
 
-	tm->tm_sec = bin2bcd(tm->tm_sec);
-	tm->tm_min = bin2bcd(tm->tm_min);
-	tm->tm_hour = bin2bcd(tm->tm_hour);
-	tm->tm_wday = bin2bcd(rzn1_rtc_tm_to_wday(tm));
-	tm->tm_mday = bin2bcd(tm->tm_mday);
-	tm->tm_mon = bin2bcd(tm->tm_mon);
-	tm->tm_year = bin2bcd(tm->tm_year);
+	if (tm2bcd(tm) < 0)
+		return -EINVAL;
 
 	val = readl(rtc->base + RZN1_RTC_CTL2);
 	if (!(val & RZN1_RTC_CTL2_STOPPED)) {
