@@ -89,7 +89,6 @@ examples:
   - |
     #include <dt-bindings/clock/r9a06g032-sysctrl.h>
     #include <dt-bindings/interrupt-controller/arm-gic.h>
-    #include <dt-bindings/soc/rzn1-memory-map.h>
     qspi: qspi0: spi@40005000 {
         compatible = "renesas,rzn1-qspi";
         #address-cells = <1>;
