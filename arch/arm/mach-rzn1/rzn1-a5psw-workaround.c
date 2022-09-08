@@ -12,7 +12,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/sysctrl-rzn1.h>
-#include <dt-bindings/soc/rzn1-memory-map.h>
 
 /*
  * Only one semaphore user currently, we use the last one.
@@ -27,6 +26,9 @@
  * Implementation #1: using h/w semaphore
  */
 #ifdef CONFIG_RZN1_A5PSW_WORKAROUND_SEMAPHORE
+
+#define RZN1_SEMAPHORE_BASE		0x53000000
+#define RZN1_SEMAPHORE_SIZE		0x4000		/* 16 KB */
 
 static void __iomem *rzn1_semaphore_addr[2];
 
